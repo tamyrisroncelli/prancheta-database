@@ -1,0 +1,24 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Executável gerado por publicar.ps1 (vai como anexo da Release, não no repositório)
+dist/
+
+# Log local das execuções de DDL (contém SQL e usuário do banco)
+execucoes.log
+
+# Editores e sistema
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Anotações de trabalho locais
+plan.md
+
+# Variáveis locais (nunca versionar connection string)
+.env
+*.local.json

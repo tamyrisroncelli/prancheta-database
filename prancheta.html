@@ -1,0 +1,1532 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prancheta Database</title>
+<style>
+/* Layout: tela de conexão; depois Explorador | documento do objeto (abas) | Propriedades; janela de Saída no rodapé */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --sunk:#f4f6f7; --ink:#1b2830; --muted:#5d6e79; --line:#d8e0e5; --line-strong:#b9c6ce;
+  --accent:#0c6684; --accent-ink:#ffffff; --accent-soft:#dcecf2;
+  --fk:#6a48a6; --fk-soft:#ebe4f6; --fx:#2a7748; --fx-soft:#e0f0e6; --inf:#7a8891;
+  --warn:#9c5f0c; --warn-soft:#faeedb; --err:#b3302a; --err-soft:#f7e0de; --info:#56687a; --info-soft:#e8edf0;
+  --code-bg:#0f1b22; --code-ink:#d3e2e9; --code-kw:#7cc6df; --code-str:#e6bf7c; --code-cm:#6c8592; --code-fn:#b9a3e8;
+  --f-body:"Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-display:var(--f-body);
+  --f-mono:Consolas,"Cascadia Mono","Courier New",monospace;
+  --r:4px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0d151a; --surface:#142028; --sunk:#101a21; --ink:#e1eaef; --muted:#8fa2ae; --line:#24343e; --line-strong:#36505e;
+  --accent:#4fb0cf; --accent-ink:#06161d; --accent-soft:#163542;
+  --fk:#b69cf0; --fk-soft:#2a2242; --fx:#6fcf95; --fx-soft:#16301f; --inf:#93a4af;
+  --warn:#e5ad5c; --warn-soft:#352610; --err:#f08a80; --err-soft:#3a1916; --info:#9fb1bd; --info-soft:#1b2a33;
+  --code-bg:#081015; --code-ink:#d3e2e9; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0d151a; --surface:#142028; --sunk:#101a21; --ink:#e1eaef; --muted:#8fa2ae; --line:#24343e; --line-strong:#36505e;
+  --accent:#4fb0cf; --accent-ink:#06161d; --accent-soft:#163542;
+  --fk:#b69cf0; --fk-soft:#2a2242; --fx:#6fcf95; --fx-soft:#16301f; --inf:#93a4af;
+  --warn:#e5ad5c; --warn-soft:#352610; --err:#f08a80; --err-soft:#3a1916; --info:#9fb1bd; --info-soft:#1b2a33;
+  --code-bg:#081015; --code-ink:#d3e2e9; color-scheme:dark; }
+:root[data-theme="light"]{color-scheme:light}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:13px;line-height:1.4;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+h2,h3{margin:0;font-weight:600}
+.hint{font-size:12px;color:var(--muted)}
+.pad{padding:8px 10px;margin:0}
+.grow{flex:1}
+
+/* barra superior */
+.top{display:flex;align-items:center;gap:6px;padding:5px max(10px,env(safe-area-inset-right,0px)) 5px max(10px,env(safe-area-inset-left,0px));background:var(--surface);border-bottom:1px solid var(--line)}
+.top>*{flex-shrink:0}
+.top>.grow{flex-shrink:1;min-width:0}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:10px;white-space:nowrap}
+.brand b{font-size:14px}
+.brand span{color:var(--muted);font-size:12px}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--r);padding:4px 10px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--accent-ink)}
+.btn.sm{padding:2px 8px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.danger{color:var(--err)}
+.btn:disabled{opacity:.45;cursor:default;pointer-events:none}
+.undo-n{font-size:11px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;background:transparent;padding:2px 9px;cursor:pointer;font-size:12px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:var(--accent-ink)}
+.seg button:disabled{opacity:.45;cursor:default}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:2px 10px;font-size:12px;cursor:pointer;white-space:nowrap;max-width:300px}
+.top>.pill{flex-shrink:1;min-width:0}
+.pill .pt{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pill i{flex-shrink:0}
+.pill:hover{border-color:var(--accent)}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);display:inline-block}
+.pill.ok i{background:var(--fx)} .pill.bad i{background:var(--err)} .pill.busy i{background:var(--warn)}
+
+/* área de trabalho */
+.ws{display:grid;grid-template-columns:210px minmax(0,1fr) 280px;min-height:0}
+.ws.noprops{grid-template-columns:210px minmax(0,1fr)}
+.ws.noprops .props{display:none}
+.kb,.props{background:var(--surface);overflow:auto;min-height:0}
+.kb{border-right:1px solid var(--line)}
+.props{border-left:1px solid var(--line)}
+.pane-h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:8px 10px 6px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:6px;align-items:center}
+.kbsec{font-size:11.5px;color:var(--muted);font-weight:600;padding:8px 10px 3px}
+.tree{list-style:none;margin:0;padding:0 4px}
+.tree button{width:100%;text-align:left;border:0;background:transparent;padding:3px 6px;border-radius:3px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tree button:hover{background:var(--sunk)}
+.tree button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tree .ico{width:14px;text-align:center;color:var(--muted);font-size:12px}
+.tree .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tree small{color:var(--muted);font-weight:400;font-size:11px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--err)}
+.newtrn{display:flex;gap:4px;padding:4px 8px 6px 10px}
+.newtrn input{flex:1;min-width:0}
+input[type=text],input[type=password],input:not([type]),input[type=number],select,textarea{border:1px solid var(--line);background:var(--surface);border-radius:3px;padding:3px 6px;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:0}
+input:disabled,select:disabled{background:var(--sunk);color:var(--muted)}
+
+/* documento central */
+.doc{display:flex;flex-direction:column;min-width:0;min-height:0}
+.doctabs{display:flex;align-items:flex-end;gap:0;padding:6px 10px 0;background:var(--bg);border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;flex-shrink:0;scrollbar-width:thin}
+.doctitle{font-weight:600;padding:4px 14px 6px 2px;white-space:nowrap}
+.doctabs button{border:1px solid transparent;border-bottom:0;background:transparent;padding:5px 12px;cursor:pointer;color:var(--muted);border-radius:4px 4px 0 0;margin-bottom:-1px;white-space:nowrap}
+.doctabs button:hover{color:var(--ink)}
+.doctabs button.on{background:var(--surface);border-color:var(--line);color:var(--ink);font-weight:600}
+.docbody{flex:1;min-height:0;overflow:auto;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:10px}
+/* sem isto os blocos encolhem na coluna flex e o conteúdo vaza por cima do bloco seguinte */
+.docbody>*{flex-shrink:0}
+.gtool{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.empty{color:var(--muted);padding:40px;text-align:center}
+
+/* grid da estrutura */
+.gwrap{overflow-x:auto;border:1px solid var(--line)}
+table.gx{border-collapse:collapse;width:100%;min-width:640px;table-layout:fixed}
+.gx th{font-weight:600;font-size:12px;text-align:left;color:var(--muted);background:var(--sunk);border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:4px 6px;position:sticky;top:0;z-index:1}
+.gx td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:0;height:24px;vertical-align:middle;white-space:nowrap;overflow:hidden}
+.gx th:last-child,.gx td:last-child{border-right:0}
+.gx .cell{width:100%;border:0;background:transparent;border-radius:0;padding:3px 6px;height:23px}
+.gx .cell:focus{background:var(--surface);box-shadow:inset 0 0 0 1px var(--accent)}
+.gx .cell:disabled{background:transparent;color:inherit}
+.gx .nmcell{display:flex;align-items:center;gap:2px;height:24px}
+.gx .nmcell .cell{flex:1;min-width:0}
+.gx tr.sel td{background:var(--accent-soft)}
+.gx tr[data-row]{cursor:default}
+.gx tr.lvrow td{background:var(--sunk);font-weight:600}
+.gx tr.lvrow.sel td{background:var(--accent-soft)}
+.gx .lvinfo{font-weight:400;color:var(--muted);font-family:var(--f-mono);font-size:11.5px;margin-left:8px}
+.gx .lvdesc{font-weight:400;color:var(--muted);padding:0 6px}
+.gx .tw{color:var(--muted);width:14px;font-size:11px}
+.gx tr.inferred .cell,.gx tr.inh td{color:var(--inf);font-style:italic}
+.gx tr.formula .cell[data-f="formula"]{color:var(--fx)}
+.gx tr.newrow .cell::placeholder{color:var(--muted);font-style:italic}
+.gx .dim{color:var(--inf);padding:0 6px}
+.gx .ctr{text-align:center}
+.kico{border:0;background:transparent;cursor:pointer;padding:0 2px;font-size:12px;line-height:1;filter:grayscale(1);opacity:.18;width:18px}
+.kico:hover{opacity:.55}
+.kico.on{filter:none;opacity:1}
+.kico.ph{cursor:default;opacity:0}
+.mk{font-size:11px;font-weight:700;padding:0 4px;border-radius:3px;margin-right:4px}
+.mk.fk{color:var(--fk);background:var(--fk-soft)}
+.mk.warn{color:var(--warn);background:var(--warn-soft)}
+.quickbox{display:flex;gap:6px;align-items:flex-start}
+.quickbox textarea{flex:1;min-height:52px;font-family:var(--f-mono);font-size:12px}
+
+/* propriedades */
+.pg{display:grid;grid-template-columns:minmax(0,42%) minmax(0,58%);font-size:12.5px}
+.pg>label{min-width:0;overflow-wrap:anywhere}
+.pg>.pv{min-width:0}
+.pg>.pv>.ro{white-space:nowrap;min-width:0}
+.pgh{grid-column:1/-1;background:var(--sunk);color:var(--muted);font-weight:600;font-size:11.5px;padding:4px 8px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pg>label{padding:3px 8px;border-bottom:1px solid var(--line);color:var(--muted);display:flex;align-items:center;min-height:26px}
+.pg>.pv{border-bottom:1px solid var(--line);border-left:1px solid var(--line);display:flex;align-items:center;min-height:26px;padding:0 2px}
+.pg>.pv>input:not([type=checkbox]),.pg>.pv>select{width:100%;border:0;background:transparent;padding:3px 5px}
+.pg>.pv>input:focus,.pg>.pv>select:focus{box-shadow:inset 0 0 0 1px var(--accent)}
+.pg>.pv>input[type=checkbox]{margin-left:6px}
+.pg>.pv>.ro{padding:3px 6px;color:var(--muted);font-family:var(--f-mono);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+.pnote{padding:8px 10px;font-size:12.5px;display:flex;flex-direction:column;gap:6px}
+.pnote .sug{border-left:3px solid var(--accent);padding:4px 8px;background:var(--sunk);display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.pnote .sug.s-erro{border-color:var(--err)} .pnote .sug.s-aviso{border-color:var(--warn)} .pnote .sug.s-info{border-color:var(--line-strong)}
+.pnote code,.otb code,.prose code{font-family:var(--f-mono);font-size:12px}
+.pact{padding:10px;display:flex;gap:6px;flex-wrap:wrap}
+
+/* janela de saída */
+.out{background:var(--surface);border-top:1px solid var(--line-strong)}
+.outh{display:flex;align-items:center;gap:12px;padding:3px 10px;font-size:12px}
+.ohbtn{border:0;background:transparent;font-weight:600;cursor:pointer;padding:2px 4px}
+.oc{color:var(--muted)} .oc b{font-weight:600}
+.oc.err b{color:var(--err)} .oc.warn b{color:var(--warn)} .oc.tip b{color:var(--accent)}
+.outb{max-height:170px;overflow:auto;border-top:1px solid var(--line)}
+table.otb{border-collapse:collapse;width:100%;font-size:12.5px}
+.otb td,.otb th{border-bottom:1px solid var(--line);padding:3px 8px;text-align:left;vertical-align:top}
+.otb th{font-size:11.5px;color:var(--muted);font-weight:600;background:var(--sunk)}
+.otb .sv{width:20px;font-weight:700;text-align:center}
+.otb .wh{white-space:nowrap;color:var(--muted);width:1%}
+.otb .ac{width:1%;white-space:nowrap}
+.s-erro .sv{color:var(--err)} .s-aviso .sv{color:var(--warn)} .s-dica .sv{color:var(--accent)} .s-info .sv{color:var(--muted)}
+
+/* regras */
+.rulesed{width:100%;min-height:200px;font-family:var(--f-mono);font-size:12.5px;line-height:1.55;resize:vertical}
+details summary{cursor:pointer;color:var(--accent)}
+.syntax{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.7}
+.syntax code{font-family:var(--f-mono);color:var(--ink);background:var(--sunk);padding:0 3px;border-radius:3px;white-space:nowrap}
+.lev code,.prose code{white-space:nowrap}
+.sec-h{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.chip{display:inline-flex;align-items:center;font-size:11px;padding:0 6px;border-radius:3px;white-space:nowrap;font-weight:600}
+.c-pk{background:var(--accent-soft);color:var(--accent)}
+.c-fk{background:var(--fk-soft);color:var(--fk)}
+.c-st{background:var(--sunk);color:var(--muted);border:1px solid var(--line)}
+.c-err{background:var(--err-soft);color:var(--err)}
+.c-warn{background:var(--warn-soft);color:var(--warn)}
+.c-ok{background:var(--fx-soft);color:var(--fx)}
+
+/* script, código, catálogo, etc. */
+.opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.checks{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;margin-top:8px}
+.checks label{display:flex;gap:5px;align-items:center}
+label.f{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--muted);min-width:0}
+label.f input,label.f select{font-size:13px;color:var(--ink)}
+.bar-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+pre.code{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:4px;padding:10px 12px;overflow:auto;max-height:560px;font-family:var(--f-mono);font-size:12px;line-height:1.55;tab-size:2}
+.code .k{color:var(--code-kw)} .code .s{color:var(--code-str)} .code .c{color:var(--code-cm);font-style:italic} .code .n{color:var(--code-fn)}
+.fname{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.box{border:1px solid var(--line);border-radius:4px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.frow{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.frow label.f{flex:1;min-width:160px}
+.tb th.num,.tb td.num{text-align:right;font-variant-numeric:tabular-nums}
+.tb td.cmt{min-width:180px;max-width:420px;white-space:normal;overflow-wrap:anywhere}
+.tb tr.sel td{background:var(--accent-soft)}
+.status{font-size:12.5px;padding:6px 8px;border-radius:3px;background:var(--sunk)}
+.status.ok{background:var(--fx-soft);color:var(--fx)} .status.bad{background:var(--err-soft);color:var(--err)}
+.execbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px;border:1px solid var(--warn);border-radius:4px;background:var(--warn-soft)}
+.execbox input{width:150px}
+.er-wrap{overflow:auto;border:1px solid var(--line);background:var(--sunk)}
+.er-box{fill:var(--surface);stroke:var(--line-strong)}
+.er-ext{fill:var(--sunk);stroke:var(--line-strong);stroke-dasharray:4 3}
+.er-head{fill:var(--accent-soft)}
+.er-title{fill:var(--accent);font-family:var(--f-body);font-weight:700;font-size:13px}
+.er-col{fill:var(--ink);font-family:var(--f-mono);font-size:11px}
+.er-pk{fill:var(--accent);font-weight:700}
+.er-fkc{fill:var(--fk)}
+.er-dim{fill:var(--muted);font-style:italic}
+.er-line{fill:none;stroke:var(--fk);stroke-width:1.4}
+.er-line.p{stroke:var(--accent)}
+.er-line.x{stroke-dasharray:4 3}
+.er-dot{fill:var(--fk)}
+table.tb{border-collapse:collapse;width:100%;font-size:12.5px}
+.tb th,.tb td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:top}
+.tb th{font-size:11.5px;color:var(--muted);font-weight:600;background:var(--sunk)}
+.tb input,.tb select{width:100%}
+.tbl-wrap{overflow-x:auto}
+.prose{max-width:80ch;font-size:13px}
+.prose h3{font-size:15px;margin:14px 0 6px}
+.prose p{margin:6px 0}
+.prose ul{margin:6px 0;padding-left:20px}
+.lev td:first-child{font-weight:600;white-space:nowrap}
+.lev .yes{color:var(--fx);font-weight:600} .lev .imp{color:var(--accent);font-weight:600} .lev .no{color:var(--muted)}
+.form-prev{border:1px solid var(--line);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--sunk)}
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fp-grid label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.fp-grid label input,.fp-grid label select{color:var(--ink);font-size:13px}
+.fp-grid .ro{background:var(--surface);border:1px dashed var(--line-strong);border-radius:3px;padding:3px 7px;color:var(--ink);min-height:27px;font-family:var(--f-mono);font-size:12.5px}
+.fp-lines table{border-collapse:collapse;width:100%;font-size:12.5px}
+.fp-lines th,.fp-lines td{border-bottom:1px solid var(--line);padding:3px 4px;text-align:left}
+.fp-lines input,.fp-lines select{width:100%}
+.fp-msgs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.fp-msgs li{padding:4px 8px;border-radius:3px;background:var(--err-soft);color:var(--err)}
+.fp-msgs li.ok{background:var(--fx-soft);color:var(--fx)}
+textarea.big{width:100%;min-height:150px;font-family:var(--f-mono);font-size:12px}
+.toast{position:fixed;bottom:calc(40px + env(safe-area-inset-bottom,0px));right:max(16px,env(safe-area-inset-right,0px));background:var(--ink);color:var(--surface);padding:7px 12px;border-radius:4px;font-size:12.5px;z-index:20;max-width:420px}
+/* tela de conexão: o resto só aparece depois de conectar */
+body.locked{display:block;overflow:auto}
+body.locked>.top,body.locked>.ws,body.locked>.out{display:none}
+.login{display:none;min-height:100vh;place-items:center;padding:16px}
+body.locked .login{display:grid}
+.lcard{width:min(400px,100%);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:22px 24px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.lcard h1{font-size:22px;margin:0;font-weight:700}
+.lcard label.f input{font-size:14px;padding:6px 8px}
+.lcard .btn.primary{padding:7px 12px;font-size:14px}
+.lmsg{font-size:12.5px;padding:7px 9px;border-radius:4px;background:var(--sunk)}
+.lmsg.bad{background:var(--err-soft);color:var(--err)}
+.lmsg code{font-family:var(--f-mono);font-size:12px}
+@media (max-width:1180px){
+  .brand span{display:none}
+  .ws{grid-template-columns:190px minmax(0,1fr) 250px}
+  .ws.noprops{grid-template-columns:190px minmax(0,1fr)}
+}
+@media (max-width:900px){
+  body{display:block;height:auto;overflow:auto}
+  .top{flex-wrap:wrap}
+  .ws,.ws.noprops{grid-template-columns:minmax(0,1fr)}
+  .kb{border-right:0;border-bottom:1px solid var(--line)}
+  .props{border-left:0;border-top:1px solid var(--line)}
+  .docbody{overflow:visible}
+  .brand span{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<body class="locked">
+
+<section class="login" id="login" aria-label="Conectar ao Oracle">
+  <form class="lcard" id="loginForm" autocomplete="on">
+    <div><h1>Prancheta Database</h1><p class="hint" style="margin:4px 0 0">Modelagem de tabelas Oracle. Conecte ao banco para entrar.</p></div>
+    <label class="f">Servidor<input name="servidor" class="mono" placeholder="host:1521/servico" autocomplete="off" spellcheck="false"></label>
+    <label class="f">Usuário<input name="usuario" class="mono" autocomplete="username" spellcheck="false"></label>
+    <label class="f">Senha<input name="senha" type="password" autocomplete="current-password"></label>
+    <div class="lmsg" id="loginMsg" hidden></div>
+    <button class="btn primary" id="loginBtn" type="submit">Conectar</button>
+    <details><summary>Avançado</summary><label class="f" style="margin-top:6px">Endereço da API local<input id="loginApi" class="mono" spellcheck="false"></label></details>
+    <p class="hint" style="margin:0">A senha vai direto para a API desta máquina (127.0.0.1) e fica só na memória dela. O navegador guarda apenas servidor e usuário.</p>
+  </form>
+</section>
+
+<header class="top">
+  <div class="brand"><b>Prancheta Database</b><span>modelagem de tabelas Oracle</span></div>
+  <button class="btn sm" id="btnUndo" title="Desfazer (Ctrl+Z)">Desfazer <span class="undo-n" id="undoN"></span></button>
+  <button class="btn sm" id="btnSample">Carregar exemplo</button>
+  <button class="btn sm" id="btnClear">Começar do zero</button>
+  <span class="grow"></span>
+  <button class="pill" id="apiPill" data-tool="db" title="Conexão com o Oracle"></button>
+  <button class="btn sm" id="btnLogout" title="Fecha a conexão e volta para a tela de entrada">Desconectar</button>
+  <div class="seg" id="themeSeg" role="group" aria-label="Tema da tela">
+    <button data-theme-set="light">Claro</button><button data-theme-set="dark">Escuro</button><button data-theme-set="auto">Auto</button>
+  </div>
+</header>
+
+<div class="ws" id="ws">
+  <aside class="kb" aria-label="Explorador">
+    <div class="pane-h">Explorador</div>
+    <div class="kbsec">Transações</div>
+    <ul class="tree" id="kbTrn"></ul>
+    <div class="newtrn">
+      <input id="newTrn" class="mono" placeholder="Nova transação" aria-label="Nome da nova transação">
+      <button class="btn sm primary" id="btnNewTrn" title="Criar transação">+</button>
+    </div>
+    <div class="kbsec">Ferramentas</div>
+    <ul class="tree" id="kbTools"></ul>
+  </aside>
+  <main class="doc">
+    <nav class="doctabs" id="docTabs"></nav>
+    <div class="docbody" id="docBody"></div>
+  </main>
+  <aside class="props" id="props" aria-label="Propriedades"></aside>
+</div>
+
+<footer class="out">
+  <div class="outh" id="outHead"></div>
+  <div class="outb" id="outBody"></div>
+</footer>
+<datalist id="attrNames"></datalist>
+<datalist id="typeNames"></datalist>
+<div class="toast" id="toast" hidden></div>
+
+
+<script>
+window.addEventListener('error',e=>{const d=document.createElement('pre');d.style.cssText='margin:16px;padding:12px;border:1px solid #b3302a;color:#b3302a;white-space:pre-wrap;font:12px monospace';d.textContent='Erro ao montar a prancheta: '+e.message+' (linha '+e.lineno+')';document.body.prepend(d);});
+</script>
+<script>
+'use strict';
+const KEY='prancheta-trn-v1';
+const $=(s,r=document)=>r.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sq=s=>String(s??'').replace(/'/g,"''");
+const TYPES=['Numeric','Character','VarChar','LongVarChar','Date','DateTime','Boolean','Blob','GUID'];
+const HASLEN=t=>['Numeric','Character','VarChar'].includes(t);
+const RESERVED=new Set('ACCESS ADD ALL ALTER AND ANY AS ASC AUDIT BETWEEN BY CHAR CHECK CLUSTER COLUMN COMMENT COMPRESS CONNECT CREATE CURRENT DATE DECIMAL DEFAULT DELETE DESC DISTINCT DROP ELSE EXCLUSIVE EXISTS FILE FLOAT FOR FROM GRANT GROUP HAVING IDENTIFIED IMMEDIATE IN INCREMENT INDEX INITIAL INSERT INTEGER INTERSECT INTO IS LEVEL LIKE LOCK LONG MAXEXTENTS MINUS MLSLABEL MODE MODIFY NOAUDIT NOCOMPRESS NOT NOWAIT NULL NUMBER OF OFFLINE ON ONLINE OPTION OR ORDER PCTFREE PRIOR PUBLIC RAW RENAME RESOURCE REVOKE ROW ROWID ROWNUM ROWS SELECT SESSION SET SHARE SIZE SMALLINT START SUCCESSFUL SYNONYM SYSDATE TABLE THEN TO TRIGGER UID UNION UNIQUE UPDATE USER VALIDATE VALUES VARCHAR VARCHAR2 VIEW WHENEVER WHERE WITH'.split(' '));
+
+// Convenção de nomes: sufixo do atributo → tipo/domínio e palavra da descrição
+const SUFFIXES=[
+  {s:'DatHor',type:'DateTime',w:'Data/hora'},{s:'DthInc',type:'DateTime',w:'Data/hora de inclusão'},
+  {s:'CarHor',type:'Numeric',len:5,w:'Carga horária'},{s:'Cnpj',domain:'Cnpj',type:'Character',len:14,w:'CNPJ'},
+  {s:'Cpf',domain:'Cpf',type:'Character',len:11,w:'CPF'},{s:'Cep',type:'Character',len:8,w:'CEP'},
+  {s:'Cod',domain:'Codigo',type:'Numeric',len:8,w:'Código'},{s:'Id',type:'Numeric',len:10,w:'Identificador'},
+  {s:'Seq',type:'Numeric',len:4,w:'Sequência'},{s:'Num',type:'Numeric',len:10,w:'Número'},
+  {s:'Nom',domain:'Nome',type:'VarChar',len:100,w:'Nome'},{s:'Des',domain:'Descricao',type:'VarChar',len:200,w:'Descrição'},
+  {s:'Sig',type:'VarChar',len:10,w:'Sigla'},{s:'Obs',type:'VarChar',len:2000,w:'Observação'},
+  {s:'Txt',type:'LongVarChar',w:'Texto'},{s:'Dat',type:'Date',w:'Data'},
+  {s:'Vlr',domain:'Valor',type:'Numeric',len:15,dec:2,w:'Valor'},{s:'Pct',type:'Numeric',len:5,dec:2,w:'Percentual'},
+  {s:'Qtd',type:'Numeric',len:8,w:'Quantidade'},{s:'Email',domain:'Email',type:'VarChar',len:100,w:'E-mail'},
+  {s:'Ema',domain:'Email',type:'VarChar',len:100,w:'E-mail'},{s:'Tel',type:'VarChar',len:20,w:'Telefone'},
+  {s:'Sit',domain:'Situacao',type:'Character',len:1,w:'Situação'},{s:'Tip',type:'Character',len:1,w:'Tipo'},
+  {s:'Flg',type:'Boolean',w:'Indicador'},{s:'Ind',type:'Boolean',w:'Indicador'},
+  {s:'Ano',type:'Numeric',len:4,w:'Ano'},{s:'Mes',type:'Numeric',len:2,w:'Mês'},
+  {s:'Img',type:'Blob',w:'Imagem'},{s:'Arq',type:'Blob',w:'Arquivo'},{s:'Guid',type:'GUID',w:'GUID'}
+].sort((a,b)=>b.s.length-a.s.length);
+
+/* ───────── estado ───────── */
+let st, model, ddlOut, ACTS=[], undoStack=[], pv={trn:null,vals:{},lines:{}};
+function defaults(){return{v:1,ui:{sel:null,view:'trn',tab:'est',item:null,outOpen:true,outAll:false,optsOpen:false,ddlView:'up',ddlScope:'trn',apiView:'openapi',formView:'preview'},
+  opts:{schema:'',version:'19c',identity:'identity',naming:'curto',dt:'DATE',charSem:'CHAR',audit:false,versionCol:false,comments:true,fk:true,cascade:true,views:true,fmt:'script',author:'dev'},
+  domains:[],attrs:{},trns:[],cat:{tables:{},loadedAt:''}};}
+function fillAttr(a){const d=a.domain&&st.domains.find(x=>x.name===a.domain);if(d){a.type=d.type;a.len=d.len;a.dec=d.dec;}return a;}
+function sample(){
+  const s=defaults();
+  const D=(name,type,len,dec,values='')=>({id:uid(),name,type,len,dec,values});
+  s.domains=[D('Codigo','Numeric',8,0),D('Nome','VarChar',100,0),D('Descricao','VarChar',200,0),D('Valor','Numeric',15,2),
+    D('Cpf','Character',11,0),D('Cnpj','Character',14,0),D('Email','VarChar',100,0),D('Situacao','Character',1,0,'A=Ativo,I=Inativo')];
+  const A=(domain,desc,type='VarChar',len=0,dec=0)=>({domain,desc,type,len,dec});
+  s.attrs={
+    CurCod:A('Codigo','Código do curso'),CurNom:A('Nome','Nome do curso'),CurSit:A('Situacao','Situação do curso'),
+    AluCod:A('Codigo','Código do aluno'),AluNom:A('Nome','Nome do aluno'),AluCpf:A('Cpf','CPF do aluno'),
+    AluDatNas:A('','Data de nascimento do aluno','Date'),AluEma:A('Email','E-mail do aluno'),
+    DisCod:A('Codigo','Código da disciplina'),DisNom:A('Nome','Nome da disciplina'),DisCarHor:A('','Carga horária da disciplina','Numeric',5),
+    DisCodPreReq:A('Codigo','Disciplina pré-requisito'),
+    MatCod:A('Codigo','Código da matrícula'),MatDat:A('','Data da matrícula','Date'),MatSit:A('Situacao','Situação da matrícula'),
+    MatVlrTot:A('Valor','Valor total da matrícula'),MatQtdDis:A('','Quantidade de disciplinas','Numeric',4),
+    MatDisVlr:A('Valor','Valor da disciplina na matrícula')};
+  const I=(attr,o={})=>({id:uid(),attr,key:false,req:false,auto:false,formula:'',ref:'',ext:'',...o});
+  const L=(name,desc,items,levels=[])=>({id:uid(),name,desc,items,levels});
+  const T=(name,desc,items,rules,levels=[])=>({id:uid(),name,desc,prefix:'',rules,root:L(name,desc,items,levels)});
+  s.trns=[
+    T('Curso','Curso de graduação',[I('CurCod',{key:true,auto:true}),I('CurNom',{req:true}),I('CurSit')],"default(CurSit, 'A');"),
+    T('Aluno','Aluno',[I('AluCod',{key:true,auto:true}),I('AluNom'),I('AluCpf'),I('AluDatNas'),I('AluEma'),I('CurCod'),I('CurNom')],
+      "// Exemplo: cada linha vira CHECK, DEFAULT, índice, trigger ou fica só na aplicação\nerror('Informe o nome do aluno') if AluNom.IsEmpty();\nerror('Data de nascimento no futuro') if AluDatNas > Today();\nunique(AluCpf);\nerror('Aluno com matrícula não pode ser excluído pelo cadastro') if AluCod > 0 on BeforeDelete;"),
+    T('Disciplina','Disciplina',[I('DisCod',{key:true}),I('DisNom',{req:true}),I('DisCarHor'),I('DisCodPreReq')],
+      "error('Carga horária deve ser maior que zero') if DisCarHor <= 0;"),
+    T('Matricula','Matrícula do aluno',[I('MatCod',{key:true,auto:true}),I('MatDat'),I('AluCod',{req:true}),I('AluNom'),I('CurNom'),I('MatSit'),
+        I('MatVlrTot',{formula:'sum(MatDisVlr)'}),I('MatQtdDis',{formula:'count(DisCod)'})],
+      "default(MatDat, Today());\ndefault(MatSit, 'A');\nnoaccept(AluNom);\nerror('Valor da disciplina não pode ser negativo') if MatDisVlr < 0;",
+      [L('MatriculaDisciplina','Disciplinas da matrícula',[I('DisCod',{key:true}),I('DisNom'),I('MatDisVlr')])])
+  ];
+  s.ui.sel=s.trns[3].id;
+  return s;
+}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);const d=defaults();o.opts={...d.opts,...o.opts};o.ui={...d.ui,...o.ui};o.cat=o.cat||d.cat;return o;}}catch(e){}return sample();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+function pushUndo(){undoStack.push(JSON.stringify(st));if(undoStack.length>40)undoStack.shift();}
+function undo(){if(!undoStack.length)return;const ui=st.ui;st=JSON.parse(undoStack.pop());st.ui={...st.ui,tab:ui.tab};save();render();toast('Alteração desfeita');}
+let rt=null;
+function mut(fn){pushUndo();fn();save();clearTimeout(rt);rt=setTimeout(()=>{const a=document.activeElement,id=a&&a.id;let ss=null;try{ss=a.selectionStart;}catch(e){}render();if(id){const n=document.getElementById(id);if(n){n.focus();try{if(ss!=null)n.setSelectionRange(ss,ss);}catch(e){}}}},0);}
+function toast(t){const el=$('#toast');el.textContent=t;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2200);}
+
+/* ───────── utilidades de nome e tipo ───────── */
+const ident=n=>String(n||'').toUpperCase();
+const maxLen=()=>st.opts.version==='19c'?128:30;
+const splitCamel=n=>String(n).replace(/([a-z0-9])([A-Z])/g,'$1 $2');
+function prefixOf(name){const w=String(name).match(/[A-Z][a-z0-9]*|[a-z0-9]+/g)||[String(name)];return w.map(x=>x.slice(0,3)).map((x,i)=>i===0?x[0].toUpperCase()+x.slice(1):x).join('');}
+function eff(a){if(!a)return{type:'VarChar',len:100,dec:0};if(a.domain){const d=st.domains.find(x=>x.name===a.domain);if(d)return{type:d.type,len:+d.len||0,dec:+d.dec||0,values:d.values||'',domain:d.name,desc:a.desc};}return{type:a.type,len:+a.len||0,dec:+a.dec||0,values:'',desc:a.desc};}
+function tlabel(a){const t=eff(a);return HASLEN(t.type)?`${t.type}(${t.len}${t.type==='Numeric'&&t.dec?','+t.dec:''})`:t.type;}
+function oraType(t){switch(t.type){
+  case 'Numeric':return t.dec>0?`NUMBER(${t.len||15},${t.dec})`:`NUMBER(${t.len||10})`;
+  case 'Character':return `CHAR(${t.len||1}${st.opts.charSem==='CHAR'?' CHAR':''})`;
+  case 'VarChar':return t.len>4000?'CLOB':`VARCHAR2(${t.len||100}${st.opts.charSem==='CHAR'?' CHAR':''})`;
+  case 'LongVarChar':return 'CLOB';case 'Date':return 'DATE';case 'DateTime':return st.opts.dt;
+  case 'Boolean':return 'NUMBER(1)';case 'Blob':return 'BLOB';case 'GUID':return 'CHAR(36)';}return 'VARCHAR2(100)';}
+function enumVals(t){return String(t.values||'').split(',').map(x=>x.trim()).filter(Boolean).map(x=>{const[v,...l]=x.split('=');return{v:v.trim(),l:(l.join('=')||v).trim()};});}
+function catToGx(c){const t=c.type;if(t==='NUMBER'){return{type:'Numeric',len:+c.prec||18,dec:+c.scale||0};}
+  if(t==='VARCHAR2'||t==='NVARCHAR2')return{type:'VarChar',len:+c.len||100,dec:0};if(t==='CHAR'||t==='NCHAR')return{type:'Character',len:+c.len||1,dec:0};
+  if(t==='DATE')return{type:'Date',len:0,dec:0};if(t.startsWith('TIMESTAMP'))return{type:'DateTime',len:0,dec:0};
+  if(t==='CLOB'||t==='NCLOB')return{type:'LongVarChar',len:0,dec:0};if(t==='BLOB')return{type:'Blob',len:0,dec:0};return{type:'VarChar',len:+c.len||100,dec:0};}
+function catLabel(c){return c.type==='NUMBER'?`NUMBER(${c.prec||''}${c.scale&&+c.scale?','+c.scale:''})`:/CHAR/.test(c.type)?`${c.type}(${c.len})`:c.type;}
+const catTable=n=>st.cat.tables[n]||null;
+
+function entityLabel(prefix){const T=model&&model.tables.find(t=>t.prefix===prefix);if(!T)return null;return T.desc||splitCamel(T.name);}
+function suggest(name){
+  const r={type:'VarChar',len:100,dec:0,domain:'',desc:'',why:'tipo padrão — nenhum sufixo reconhecido',ref:''};
+  const pks=model?model.tables.filter(t=>t.key.length===1).map(t=>t.key[0]):[];
+  const sup=pks.filter(p=>name!==p&&name.startsWith(p)).sort((a,b)=>b.length-a.length)[0];
+  if(sup&&st.attrs[sup]){const a=st.attrs[sup];Object.assign(r,{type:a.type,len:a.len,dec:a.dec,domain:a.domain,ref:sup,desc:`${a.desc||sup} (${splitCamel(name.slice(sup.length)).toLowerCase()})`,why:`subtipo de ${sup}`});return r;}
+  // catálogo Oracle: coluna com o mesmo nome já existe
+  const cc=findCatCol(ident(name));
+  if(cc){Object.assign(r,catToGx(cc.col),{why:`copiado do Oracle: ${cc.table}.${ident(name)} ${catLabel(cc.col)}`});}
+  let sf=SUFFIXES.find(s=>name.endsWith(s.s)&&name.length>s.s.length),tail='';
+  if(!sf){// sufixo seguido de qualificador (ex.: PedVlrTot, AluDatNas): usa o último termo reconhecido
+    const w=name.match(/[A-Z][a-z0-9]*/g)||[];
+    for(let k=w.length-2;k>=1&&!sf;k--){const hit=SUFFIXES.find(s=>s.s===w[k]||(k>=1&&s.s===w[k-1]+w[k]));
+      if(hit){sf=hit;tail=w.slice(k+1).join('');}}
+    if(sf)name=name.slice(0,name.length-tail.length);}
+  if(sf){
+    if(!cc){const d=sf.domain&&st.domains.find(x=>x.name===sf.domain);
+      if(d)Object.assign(r,{domain:d.name,type:d.type,len:+d.len,dec:+d.dec,why:`sufixo “${sf.s}” → domínio ${d.name}`});
+      else Object.assign(r,{type:sf.type,len:sf.len||0,dec:sf.dec||0,why:`sufixo “${sf.s}” → ${sf.type}`});}
+    const pfx=name.slice(0,-sf.s.length);const ent=entityLabel(pfx)||(pfx.length>3?splitCamel(pfx):null);
+    const QUAL={Tot:'total',Nas:'de nascimento',Ini:'inicial',Fim:'final',Ant:'anterior',Liq:'líquido',Bru:'bruto',Inc:'de inclusão',Alt:'de alteração',Pag:'de pagamento',Ven:'de vencimento'};
+    const q=(tail.match(/[A-Z][a-z0-9]*/g)||[]).map(x=>QUAL[x]||x.toLowerCase()).join(' ');
+    const w=sf.w+(q?' '+q:'');
+    r.desc=ent?`${w} ${/a$/i.test(ent.split(' ')[0])?'da':'do'} ${ent.toLowerCase()}`:w;
+  }else if(!cc){r.desc=splitCamel(name);}
+  return r;
+}
+function findCatCol(col){for(const tn in st.cat.tables){const c=st.cat.tables[tn].cols[col];if(c)return{table:tn,col:c};}return null;}
+
+/* ───────── motor de inferência (normalização, FK, tabela estendida) ───────── */
+const sameSet=(a,b)=>a.length===b.length&&a.every(x=>b.includes(x));
+function analyze(){
+  const M={tables:[],issues:[],home:{},multi:{},rules:{}};
+  for(const trn of st.trns){
+    const walk=(lv,parent,depth)=>{
+      const name=depth===0?trn.name:lv.name;
+      const pk=parent?parent.key:[];
+      const items=lv.items.filter(i=>i.attr&&!pk.includes(i.attr));
+      const own=items.filter(i=>i.key).map(i=>i.attr);
+      const T={name,trn,lv,parent,depth,items,inh:pk.slice(),own,key:[...pk,...own],fks:[],inferred:{},children:[],
+        desc:depth===0?(trn.desc||''):(lv.desc||''),prefix:depth===0&&trn.prefix?trn.prefix:prefixOf(name),
+        rx:{checks:[],defaults:{},notnull:new Set(),uniques:[],before:[],after:[]}};
+      T.set=new Set([...T.inh,...items.map(i=>i.attr)]);
+      if(parent)parent.children.push(T);
+      M.tables.push(T);
+      lv.levels.forEach(c=>walk(c,T,depth+1));
+    };
+    walk(trn.root,null,0);
+  }
+  const Ts=M.tables;
+  for(const T of Ts){
+    const c=Ts.filter(B=>B!==T&&B.key.length&&B.key.every(k=>T.set.has(k))&&!sameSet(B.key,T.key));
+    const direct=c.filter(B=>!c.some(C=>C!==B&&C.key.length>B.key.length&&B.key.every(k=>C.key.includes(k))));
+    direct.forEach(B=>T.fks.push({to:B,cols:B.key.map(k=>({from:k,to:k})),parent:B===T.parent,sub:false}));
+    T.items.filter(i=>i.ref).forEach(i=>{const B=Ts.find(b=>b.key.length===1&&b.key[0]===i.ref);
+      if(B)T.fks.push({to:B,cols:[{from:i.attr,to:i.ref}],sub:true,item:i});
+      else M.issues.push({sev:'erro',where:T.name,text:`<code>${esc(i.attr)}</code> é subtipo de <code>${esc(i.ref)}</code>, mas nenhuma tabela tem essa chave.`});});
+    T.items.filter(i=>i.ext).forEach(i=>{const[tb,col]=i.ext.split('.');T.fks.push({ext:true,extTable:tb,cols:[{from:i.attr,to:col}],item:i,sub:true});});
+  }
+  const reach=T=>{if(T._r)return T._r;const s=new Set(),q=[T];while(q.length){const x=q.shift();for(const f of x.fks){if(f.sub||f.ext)continue;if(!s.has(f.to)&&f.to!==T){s.add(f.to);q.push(f.to);}}}return T._r=s;};
+  M.reach=reach;
+  const occ={};
+  Ts.forEach(T=>T.items.forEach(i=>{if(!i.key&&!i.formula)(occ[i.attr]??=[]).push(T);}));
+  for(const a in occ){const c=occ[a];const h=c.find(C=>c.every(D=>D===C||reach(D).has(C)));if(!h&&c.length>1)M.multi[a]=c;M.home[a]=h||c[0];}
+  Ts.forEach(T=>T.items.forEach(i=>{if(i.key||i.formula)return;const h=M.home[i.attr];if(h&&h!==T&&reach(T).has(h))T.inferred[i.attr]=h;}));
+  Ts.forEach(T=>{T.fks=T.fks.filter(f=>f.sub||f.ext||!f.cols.every(c=>T.inferred[c.from]));T._r=null;});
+  Ts.forEach(T=>{const seen=new Set();T.cols=[];
+    T.inh.forEach(a=>{seen.add(a);T.cols.push({a,key:true,inh:true});});
+    T.items.forEach(i=>{if(i.formula||T.inferred[i.attr]||seen.has(i.attr))return;seen.add(i.attr);T.cols.push({a:i.attr,key:!!i.key,it:i});});});
+  for(let i=0;i<Ts.length;i++)for(let j=i+1;j<Ts.length;j++)if(Ts[i].key.length&&sameSet(Ts[i].key,Ts[j].key))
+    M.issues.push({sev:'aviso',where:Ts[j].name,text:`Mesma chave de <b>${esc(Ts[i].name)}</b> (${Ts[i].key.join(', ')}). As duas geram tabelas separadas. Una as estruturas ou troque a chave.`});
+  const names={};Ts.forEach(T=>{const n=ident(T.name);if(names[n])M.issues.push({sev:'erro',where:T.name,text:`Nome de tabela repetido: <code>${n}</code>.`});names[n]=1;});
+  st.trns.forEach(trn=>{M.rules[trn.id]=applyRules(trn,M);});
+  return M;
+}
+
+/* ───────── tradutor de expressões (regras e fórmulas) → SQL / JS / C# ───────── */
+function tx(expr,mode,ref,agg){
+  const ctx={sys:false,unknown:[],attrs:[]};const tok=[];const put=s=>{tok.push(s);return `\u0001${tok.length-1}\u0002`;};
+  const R=a=>{if(st.attrs[a]){ctx.attrs.push(a);const r=ref(a);if(r==null){ctx.unknown.push(a);return a;}return r;}return null;};
+  const isNum=a=>st.attrs[a]&&['Numeric','Boolean'].includes(eff(st.attrs[a]).type);
+  const isStr=a=>st.attrs[a]&&['Character','VarChar','LongVarChar'].includes(eff(st.attrs[a]).type);
+  const parts=String(expr).split(/("[^"]*"|'(?:[^']|'')*')/);
+  let out=parts.map((p,i)=>{
+    if(i%2){const body=p[0]==='"'?p.slice(1,-1):p.slice(1,-1).replace(/''/g,"'");return put(mode==='sql'?`'${sq(body)}'`:JSON.stringify(body));}
+    let q=p;
+    if(agg)q=q.replace(/\b(sum|count|max|min|average)\s*\(\s*(\w+)\s*\)/gi,(m,f,a)=>{const r=agg(f.toLowerCase(),a);if(r==null){ctx.unknown.push(a);return put('NULL');}return put(r);});
+    q=q.replace(/\b(\w+)\.IsEmpty\(\)/g,(m,a)=>{const r=R(a)??a;
+      if(mode==='sql')return put(isNum(a)?`(${r} IS NULL OR ${r} = 0)`:`${r} IS NULL`);
+      if(mode==='js')return put(`isEmpty(${r})`);
+      return put(isNum(a)?`(${r} == null || ${r} == 0)`:isStr(a)?`string.IsNullOrWhiteSpace(${r})`:`${r} == null`);});
+    q=q.replace(/\b(\w+)\.Length\(\)/g,(m,a)=>{const r=R(a)??a;return put(mode==='sql'?`LENGTH(${r})`:mode==='js'?`String(${r}??'').length`:`(${r}?.Length ?? 0)`);});
+    q=q.replace(/\b(\w+)\.Trim\(\)/g,(m,a)=>{const r=R(a)??a;return put(mode==='sql'?`TRIM(${r})`:mode==='js'?`String(${r}??'').trim()`:`${r}?.Trim()`);});
+    q=q.replace(/&Today\b|\bToday\(\)/gi,()=>{ctx.sys=true;return put(mode==='sql'?'TRUNC(SYSDATE)':mode==='js'?'today()':'DateOnly.FromDateTime(DateTime.Today)');});
+    q=q.replace(/&Now\b|\bNow\(\)/gi,()=>{ctx.sys=true;return put(mode==='sql'?'SYSDATE':mode==='js'?'new Date()':'DateTime.Now');});
+    q=q.replace(/\b(and|or|not)\b/gi,m=>{const k=m.toLowerCase();return put(mode==='sql'?' '+k.toUpperCase()+' ':({and:' && ',or:' || ',not:'!'})[k]);});
+    q=q.replace(/\b([A-Za-z_]\w*)\b/g,m=>{const r=R(m);if(r!=null)return put(r);if(st.attrs[m])return m;if(mode==='sql')return m.toUpperCase();ctx.unknown.push(m);return m;});
+    if(mode!=='sql'){q=q.replace(/<>/g,'!=').replace(/(^|[^<>!=])=(?!=)/g,'$1==');}
+    return q;
+  }).join('');
+  for(let k=0;k<6&&/\u0001\d+\u0002/.test(out);k++)out=out.replace(/\u0001(\d+)\u0002/g,(m,n)=>tok[+n]);
+  ctx.out=out.replace(/\s{2,}/g,' ').trim();return ctx;
+}
+const attrsIn=expr=>[...new Set((String(expr).replace(/("[^"]*"|'(?:[^']|'')*')/g,'').match(/\b[A-Za-z_]\w*\b/g)||[]).filter(w=>st.attrs[w]))];
+
+/* ───────── regras: parse + destino (CHECK, DEFAULT, NOT NULL, UNIQUE, TRIGGER ou aplicação) ───────── */
+const DBEV={BeforeInsert:'I',AfterInsert:'I',BeforeUpdate:'U',AfterUpdate:'U',BeforeDelete:'D',AfterDelete:'D'};
+function parseRules(trn){
+  const out=[];
+  String(trn.rules||'').split('\n').forEach((raw,ln)=>{
+    let s=raw.trim();if(!s||s.startsWith('//'))return;s=s.replace(/;\s*$/,'').trim();
+    let ev=null;const mo=s.match(/\s+on\s+([A-Za-z][\w\s,]*)$/i);if(mo){ev=mo[1].split(/\s*,\s*/).map(x=>x.trim()).filter(Boolean);s=s.slice(0,mo.index).trim();}
+    const R={ln:ln+1,raw:raw.trim(),kind:'?',ev,target:'',note:'',table:null,sql:''};let m;
+    if((m=s.match(/^(error|msg)\s*\(\s*(?:"([^"]*)"|'([^']*)')\s*\)\s*(?:if\s+(.+))?$/i))){R.kind=m[1].toLowerCase();R.msg=m[2]??m[3];R.cond=m[4]||'';}
+    else if((m=s.match(/^default\s*\(\s*(\w+)\s*,\s*(.+)\)$/i))){R.kind='default';R.attr=m[1];R.val=m[2].trim();}
+    else if((m=s.match(/^(noaccept|required)\s*\(\s*(\w+)\s*\)(?:\s+if\s+(.+))?$/i))){R.kind=m[1].toLowerCase();R.attr=m[2];R.cond=m[3]||'';}
+    else if((m=s.match(/^serial\s*\(\s*(\w+)\s*,\s*(\w+)\s*,\s*(\d+)\s*\)$/i))){R.kind='serial';R.attr=m[1];R.last=m[2];R.step=+m[3];}
+    else if((m=s.match(/^(add|subtract)\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)$/i))){R.kind=m[1].toLowerCase();R.attr=m[2];R.tgt=m[3];}
+    else if((m=s.match(/^unique\s*\(([\w\s,]+)\)$/i))){R.kind='unique';R.attrs=m[1].split(',').map(x=>x.trim()).filter(Boolean);}
+    else if((m=s.match(/^(equal|parm|prompt|refcall|refmsg|accept|order|allownulls)\b/i))){R.kind=m[1].toLowerCase();}
+    out.push(R);
+  });
+  return out;
+}
+function applyRules(trn,M){
+  const Ts=M.tables.filter(T=>T.trn===trn);const rules=parseRules(trn);
+  const stored=(T,a)=>T.cols.some(c=>c.a===a);
+  const tableOf=attrs=>Ts.filter(T=>attrs.every(a=>T.set.has(a))).sort((a,b)=>b.depth-a.depth)[0]||null;
+  const storedIn=a=>Ts.filter(T=>stored(T,a)).sort((x,y)=>x.depth-y.depth)[0]||null;
+  const APP=(R,n)=>{R.target='APLICAÇÃO';R.note=n;};
+  let nT=0;
+  for(const R of rules){
+    const evs=R.ev?R.ev.map(e=>DBEV[e]||(Object.keys(DBEV).find(k=>k.toLowerCase()===e.toLowerCase())?DBEV[Object.keys(DBEV).find(k=>k.toLowerCase()===e.toLowerCase())]:null)):null;
+    const nonDb=evs&&evs.some(e=>!e);
+    switch(R.kind){
+      case 'error':{
+        if(!R.cond){APP(R,'Sem condição: erro incondicional só faz sentido na aplicação.');break;}
+        const at=attrsIn(R.cond);const T=tableOf(at);R.table=T;
+        if(!T){R.target='ERRO';R.note='Atributos da condição não estão todos num mesmo nível.';break;}
+        if(nonDb){APP(R,`Momento ${R.ev.join(', ')} não existe no banco: validação fica na aplicação/API.`);break;}
+        const mm=R.cond.trim().match(/^(\w+)\.IsEmpty\(\)$/);
+        if(mm&&!evs&&stored(T,mm[1])){T.rx.notnull.add(mm[1]);R.target='NOT NULL';R.sql=`${ident(mm[1])} NOT NULL`;
+          if(eff(st.attrs[mm[1]]).type==='Numeric'){T.rx.checks.push({sql:`${ident(mm[1])} <> 0`,why:R.msg});R.sql+=` + CHECK (${ident(mm[1])} <> 0)`;}break;}
+        const del=evs&&evs.length&&evs.every(e=>e==='D');
+        const c1=tx(R.cond,'sql',a=>stored(T,a)?ident(a):null);
+        if(c1.unknown.length){APP(R,`Usa ${c1.unknown.map(x=>'<code>'+esc(x)+'</code>').join(', ')} (inferido/fora da tabela): valida na aplicação/API.`);break;}
+        if(c1.sys||evs){const c2=tx(R.cond,'sql',a=>stored(T,a)?`:${del?'OLD':'NEW'}.${ident(a)}`:null);
+          T.rx.before.push({ev:evs&&evs.length?evs:['I','U'],code:`IF ${c2.out} THEN\n      RAISE_APPLICATION_ERROR(-20001, '${sq(R.msg)}');\n    END IF;`});
+          R.target='TRIGGER';R.sql=`IF ${c2.out} THEN RAISE_APPLICATION_ERROR(...)`;R.note=c1.sys?'Data do sistema não é permitida em CHECK.':'';break;}
+        T.rx.checks.push({sql:`NOT (${c1.out})`,why:R.msg});R.target='CHECK';R.sql=`CHECK (NOT (${c1.out}))`;break;}
+      case 'msg':APP(R,'Mensagem de aviso não bloqueia gravação: só na interface.');break;
+      case 'default':{const T=storedIn(R.attr);R.table=T;if(!T){R.target='ERRO';R.note=`<code>${esc(R.attr)}</code> não é gravado nesta transação.`;break;}
+        let v=null;const x=R.val;
+        if(/^-?\d+(\.\d+)?$/.test(x))v=x;else if(/^"[^"]*"$|^'[^']*'$/.test(x))v=`'${sq(x.slice(1,-1))}'`;
+        else if(/^(Today\(\)|&Today)$/i.test(x))v='TRUNC(SYSDATE)';else if(/^(Now\(\)|&Now)$/i.test(x))v='SYSDATE';
+        if(v==null){APP(R,'Valor calculado: default aplicado pela aplicação.');break;}
+        T.rx.defaults[R.attr]=v;R.target='DEFAULT';R.sql=`${ident(R.attr)} DEFAULT ${v}`;break;}
+      case 'required':{const T=storedIn(R.attr);R.table=T;if(!T||R.cond){APP(R,R.cond?'Obrigatoriedade condicional: aplicação.':'Atributo não gravado aqui.');break;}
+        T.rx.notnull.add(R.attr);R.target='NOT NULL';R.sql=`${ident(R.attr)} NOT NULL`;break;}
+      case 'noaccept':APP(R,'Campo somente leitura no formulário (readOnly no JSON Schema).');R.table=tableOf([R.attr]);break;
+      case 'serial':{const T=storedIn(R.attr);R.table=T;const P=T&&T.parent;
+        if(!T||!P||!stored(P,R.last)){R.target='ERRO';R.note=`serial() exige ${R.attr} num subnível e ${R.last} gravado no nível pai.`;break;}
+        T.rx.before.push({ev:['I'],serial:true,code:`IF :NEW.${ident(R.attr)} IS NULL THEN\n      UPDATE ${'§'}${ident(P.name)} SET ${ident(R.last)} = NVL(${ident(R.last)}, 0) + ${R.step}\n       WHERE ${P.key.map(k=>`${ident(k)} = :NEW.${ident(k)}`).join(' AND ')}\n       RETURNING ${ident(R.last)} INTO v_serial;\n      :NEW.${ident(R.attr)} := v_serial;\n    END IF;`});
+        R.target='TRIGGER';R.sql=`numera ${ident(R.attr)} a partir de ${ident(P.name)}.${ident(R.last)}`;break;}
+      case 'add':case 'subtract':{const T=storedIn(R.attr);R.table=T;const H=M.home[R.tgt];const fk=T&&H&&T.fks.find(f=>f.to===H&&!f.sub&&!f.ext);
+        if(!T||!fk){R.target='ERRO';R.note=`${R.tgt} precisa estar gravado numa tabela referenciada diretamente por ${T?T.name:'?'}.`;break;}
+        const sg=R.kind==='add'?['+','-']:['-','+'];const w=o=>fk.cols.map(c=>`${ident(c.to)} = :${o}.${ident(c.from)}`).join(' AND ');
+        T.rx.after.push({code:`IF INSERTING OR UPDATING THEN\n      UPDATE §${ident(H.name)} SET ${ident(R.tgt)} = NVL(${ident(R.tgt)}, 0) ${sg[0]} NVL(:NEW.${ident(R.attr)}, 0) WHERE ${w('NEW')};\n    END IF;\n    IF DELETING OR UPDATING THEN\n      UPDATE §${ident(H.name)} SET ${ident(R.tgt)} = NVL(${ident(R.tgt)}, 0) ${sg[1]} NVL(:OLD.${ident(R.attr)}, 0) WHERE ${w('OLD')};\n    END IF;`});
+        R.target='TRIGGER';R.sql=`${ident(H.name)}.${ident(R.tgt)} ${sg[0]}= ${ident(R.attr)}`;R.note=fk.parent&&st.opts.cascade?'Atenção: com ON DELETE CASCADE do pai, excluir o pai dispara ORA-04091 neste trigger.':'';break;}
+      case 'unique':{const T=Ts.filter(t=>R.attrs.every(a=>stored(t,a))).sort((a,b)=>b.depth-a.depth)[0];R.table=T;
+        if(!T){R.target='ERRO';R.note='Atributos não estão todos gravados numa mesma tabela.';break;}
+        T.rx.uniques.push(R.attrs);R.target='UNIQUE';R.sql=`UNIQUE (${R.attrs.map(ident).join(', ')})`;break;}
+      case '?':R.target='ERRO';R.note='Regra não reconhecida. Veja a sintaxe aceita abaixo.';break;
+      default:APP(R,'Regra de interface/navegação: vai para o contrato da UI.');
+    }
+  }
+  return rules;
+}
+
+/* ───────── geração DDL em unidades (cada unidade = um changeset) ───────── */
+function genUnits(M,onlyTrn){
+  const o=st.opts,S=o.schema?ident(o.schema)+'.':'',L=maxLen(),warn=[];
+  const chk=(n,what,where)=>{if(n.length>L)warn.push({where,text:`${what} <code>${n}</code> tem ${n.length} caracteres (máx. ${L} na versão ${o.version}).`});if(RESERVED.has(n))warn.push({where,text:`${what} <code>${n}</code> é palavra reservada do Oracle.`});return n;};
+  const useId=o.identity==='identity'&&o.version!=='11g';const G=o.naming!=='desc';
+  const B={seq:[],table:[],check:[],comment:[],fk:[],index:[],trigger:[],view:[]};
+  const Ts=M.tables.filter(T=>!onlyTrn||T.trn.id===onlyTrn);
+  const fix=s=>s.replace(/§/g,S);
+  for(const T of Ts){
+    if(!T.key.length)continue;
+    const tn=chk(ident(T.name),'Tabela',T.name),R=T.rx,ex=catTable(tn),pf=ident(T.prefix);let n=1,ck=1;
+    const auto=T.cols.find(c=>c.key&&c.it&&c.it.auto&&eff(st.attrs[c.a]).type==='Numeric');
+    const colDef=c=>{const t=eff(st.attrs[c.a]);let s=`${chk(ident(c.a),'Coluna',T.name).padEnd(16)} ${oraType(t)}`;
+      if(auto&&c===auto&&useId)s+=' GENERATED BY DEFAULT ON NULL AS IDENTITY';
+      if(R.defaults[c.a])s+=` DEFAULT ${R.defaults[c.a]}`;
+      if(c.key||(c.it&&c.it.req)||R.notnull.has(c.a))s+=' NOT NULL';return s;};
+    const extra=[];
+    if(o.audit)extra.push(`${pf}USUINC VARCHAR2(60)`,`${pf}DTHINC DATE`,`${pf}USUALT VARCHAR2(60)`,`${pf}DTHALT DATE`);
+    if(o.versionCol)extra.push(`${pf}VERSAO NUMBER(9) DEFAULT 0 NOT NULL`);
+    const autoChecks=[];
+    T.cols.forEach(c=>{const t=eff(st.attrs[c.a]),C=ident(c.a);const ev=enumVals(t);
+      if(ev.length)autoChecks.push({col:c.a,sql:`${C} IN (${ev.map(x=>t.type==='Numeric'?x.v:`'${sq(x.v)}'`).join(', ')})`,why:`domínio ${t.domain}`});
+      else if(t.type==='Boolean')autoChecks.push({col:c.a,sql:`${C} IN (0, 1)`,why:'Boolean'});
+      if(t.domain==='Cpf'||(/Cpf$/.test(c.a)&&t.type==='Character'))autoChecks.push({col:c.a,sql:`REGEXP_LIKE(${C}, '^[0-9]{11}$')`,why:'CPF com 11 dígitos'});
+      if(t.domain==='Cnpj'||(/Cnpj$/.test(c.a)&&t.type==='Character'))autoChecks.push({col:c.a,sql:`REGEXP_LIKE(${C}, '^[0-9]{14}$')`,why:'CNPJ com 14 dígitos'});});
+    const pkName=chk(G?`I${tn}`:`PK_${tn}`,'Constraint',T.name);
+    let newCols=T.cols;
+    if(auto&&!useId&&!(ex&&ex.cols[ident(auto.a)])){const sn=chk(`SEQ_${tn}`,'Sequence',T.name);B.seq.push({title:`Sequence de ${tn}.${ident(auto.a)}`,up:[{sql:`CREATE SEQUENCE ${S}${sn} START WITH 1 INCREMENT BY 1`}],down:[`DROP SEQUENCE ${S}${sn}`]});
+      R.before.unshift({ev:['I'],code:`IF :NEW.${ident(auto.a)} IS NULL THEN\n      :NEW.${ident(auto.a)} := ${S}${sn}.NEXTVAL;\n    END IF;`});}
+    if(ex){
+      newCols=T.cols.filter(c=>!ex.cols[ident(c.a)]);
+      const diffs=T.cols.filter(c=>ex.cols[ident(c.a)]).map(c=>{const dc=ex.cols[ident(c.a)],want=oraType(eff(st.attrs[c.a])).replace(' CHAR','');return catLabel(dc)!==want?`-- DIFERENÇA: ${ident(c.a)} no banco ${catLabel(dc)} | modelo ${want} — avaliar ALTER TABLE ... MODIFY`:null;}).filter(Boolean);
+      const up=newCols.map(c=>({sql:`ALTER TABLE ${S}${tn} ADD (${colDef(c)})`,pre:(c.key||c.it&&c.it.req||R.notnull.has(c.a))&&!R.defaults[c.a]?'-- coluna NOT NULL em tabela com dados exige DEFAULT ou carga prévia':''}));
+      extra.forEach(e=>{if(!ex.cols[e.split(' ')[0]])up.push({sql:`ALTER TABLE ${S}${tn} ADD (${e})`});});
+      B.table.push({title:`Alterar ${tn} (já existe no Oracle — diff com o catálogo)`,notes:diffs,up,down:up.map(u=>`ALTER TABLE ${S}${tn} DROP COLUMN ${u.sql.match(/ADD \((\w+)/)[1]}`).reverse()});
+    }else{
+      const lines=[...T.cols.map(colDef),...extra,`CONSTRAINT ${pkName} PRIMARY KEY (${T.key.map(ident).join(', ')})`];
+      B.table.push({title:`Tabela ${tn}${T.desc?' — '+T.desc:''}`,up:[{sql:`CREATE TABLE ${S}${tn} (\n  ${lines.join(',\n  ')}\n)`}],down:[`DROP TABLE ${S}${tn} CASCADE CONSTRAINTS`]});
+    }
+    const newSet=new Set(newCols.map(c=>c.a));
+    const cks=[...autoChecks.filter(c=>newSet.has(c.col)),...R.checks];
+    if(cks.length){B.check.push({title:`Validações de ${tn}`,up:cks.map(c=>{const nm=chk(`CK_${tn}_${ck++}`,'Constraint',T.name);return{sql:`ALTER TABLE ${S}${tn} ADD CONSTRAINT ${nm} CHECK (${c.sql})`,pre:c.why?`-- ${c.why}`:''};}),
+      down:[]});B.check[B.check.length-1].down=B.check[B.check.length-1].up.map(u=>`ALTER TABLE ${S}${tn} DROP CONSTRAINT ${u.sql.match(/CONSTRAINT (\w+)/)[1]}`).reverse();}
+    if(o.comments){const cm=[];if(T.desc&&!ex)cm.push({sql:`COMMENT ON TABLE ${S}${tn} IS '${sq(T.desc)}'`});
+      T.cols.forEach(c=>{const d=st.attrs[c.a]&&st.attrs[c.a].desc;if(d&&newSet.has(c.a))cm.push({sql:`COMMENT ON COLUMN ${S}${tn}.${ident(c.a)} IS '${sq(d)}'`});});
+      if(cm.length)B.comment.push({title:`Comentários de ${tn}`,up:cm,down:[]});}
+    const pkLead=T.key.map(ident);
+    for(const f of T.fks){
+      const fc=f.cols.map(c=>ident(c.from)),tc=f.cols.map(c=>ident(c.to));
+      const toN=f.ext?ident(f.extTable):ident(f.to.name);
+      const already=ex&&fc.every(c=>ex.cols[c]&&ex.cols[c].fk);
+      const k=n++;const fkn=chk(G?`I${tn}${k}`:`FK_${tn}_${toN}${T.fks.filter(x=>(x.ext?ident(x.extTable):x.to&&ident(x.to.name))===toN).length>1?'_'+k:''}`,'Constraint',T.name);
+      if(o.fk&&!already)B.fk.push({title:`${tn} → ${toN}${f.parent?' (nível pai)':f.sub&&!f.ext?' (subtipo)':f.ext?' (tabela existente)':''}`,
+        up:[{sql:`ALTER TABLE ${S}${tn} ADD CONSTRAINT ${fkn} FOREIGN KEY (${fc.join(', ')})\n  REFERENCES ${S}${toN} (${tc.join(', ')})${f.parent&&o.cascade?' ON DELETE CASCADE':''}`}],
+        down:[`ALTER TABLE ${S}${tn} DROP CONSTRAINT ${fkn}`]});
+      const covered=fc.every((c,i)=>pkLead[i]===c);
+      if(!covered&&!already){const ixn=chk(G?`I${tn}${k}`:`IX_${tn}_${k}`,'Índice',T.name);
+        B.index.push({title:`Índice da FK ${tn} → ${toN}`,up:[{sql:`CREATE INDEX ${S}${ixn} ON ${S}${tn} (${fc.join(', ')})`}],down:[`DROP INDEX ${S}${ixn}`]});}
+    }
+    R.uniques.forEach(u=>{const k=n++;const un=chk(G?`U${tn}${k}`:`UK_${tn}_${k}`,'Índice',T.name);
+      B.index.push({title:`Índice único ${tn} (${u.join(', ')})`,up:[{sql:`CREATE UNIQUE INDEX ${S}${un} ON ${S}${tn} (${u.map(ident).join(', ')})`}],down:[`DROP INDEX ${S}${un}`]});});
+    const bef=[...R.before];
+    if(o.audit)bef.push({ev:['I'],code:`:NEW.${pf}USUINC := NVL(SYS_CONTEXT('USERENV','CLIENT_IDENTIFIER'), USER);\n    :NEW.${pf}DTHINC := SYSDATE;`},{ev:['U'],code:`:NEW.${pf}USUALT := NVL(SYS_CONTEXT('USERENV','CLIENT_IDENTIFIER'), USER);\n    :NEW.${pf}DTHALT := SYSDATE;`});
+    if(o.versionCol)bef.push({ev:['U'],code:`:NEW.${pf}VERSAO := NVL(:OLD.${pf}VERSAO, 0) + 1;`});
+    if(bef.length){const evs=[...new Set(bef.flatMap(b=>b.ev))];const EV={I:'INSERT',U:'UPDATE',D:'DELETE'},IN={I:'INSERTING',U:'UPDATING',D:'DELETING'};
+      const tg=chk(`TG_${tn}_BIUD`.replace('BIUD','B'+evs.sort().join('')),'Trigger',T.name);
+      const body=bef.map(b=>{const all=evs.every(e=>b.ev.includes(e));return all?'    '+b.code:`    IF ${b.ev.map(e=>IN[e]).join(' OR ')} THEN\n      ${b.code.replace(/\n/g,'\n  ')}\n    END IF;`;}).join('\n');
+      B.trigger.push({title:`Trigger BEFORE de ${tn} (chave, regras, auditoria)`,plsql:true,up:[{sql:fix(`CREATE OR REPLACE TRIGGER ${S}${tg}\nBEFORE ${evs.map(e=>EV[e]).join(' OR ')} ON ${S}${tn}\nFOR EACH ROW\n${bef.some(b=>b.serial)?'DECLARE\n  v_serial NUMBER;\n':''}BEGIN\n${body}\nEND;`),plsql:true}],down:[`DROP TRIGGER ${S}${tg}`]});}
+    if(R.after.length){const tg=chk(`TG_${tn}_AIUD`,'Trigger',T.name);
+      B.trigger.push({title:`Trigger AFTER de ${tn} (add/subtract)`,plsql:true,up:[{sql:fix(`CREATE OR REPLACE TRIGGER ${S}${tg}\nAFTER INSERT OR UPDATE OR DELETE ON ${S}${tn}\nFOR EACH ROW\nBEGIN\n    ${R.after.map(a=>a.code).join('\n    ')}\nEND;`),plsql:true}],down:[`DROP TRIGGER ${S}${tg}`]});}
+    if(o.views){const v=viewSQL(M,T,S,warn);if(v)B.view.push({title:`Visão da tabela estendida de ${tn} (inferidos + fórmulas)`,up:[{sql:v.sql}],down:[`DROP VIEW ${S}${v.name}`]});}
+  }
+  return{units:[...B.seq,...B.table,...B.check,...B.comment,...B.fk,...B.index,...B.trigger,...B.view],warn};
+}
+function pathTo(M,T,H){const prev=new Map([[T,null]]),q=[T];while(q.length){const x=q.shift();if(x===H)break;for(const f of x.fks){if(f.sub||f.ext)continue;if(!prev.has(f.to)){prev.set(f.to,{from:x,f});q.push(f.to);}}}
+  if(!prev.has(H))return null;const p=[];let c=H;while(prev.get(c)){p.unshift(prev.get(c).f);c=prev.get(c).from;}return p;}
+function viewSQL(M,T,S,warn){
+  const fx=T.items.filter(i=>i.formula),inf=T.items.filter(i=>T.inferred[i.attr]);if(!fx.length&&!inf.length)return null;
+  const joins=[],alias=new Map();
+  const aliasFor=path=>{let prev='t',key='';for(const f of path){key+='>'+f.to.name+'('+f.cols.map(c=>c.from).join(',')+')';if(!alias.has(key)){const al='j'+(alias.size+1);alias.set(key,al);
+    joins.push(`LEFT JOIN ${S}${ident(f.to.name)} ${al} ON ${f.cols.map(c=>`${al}.${ident(c.to)} = ${prev}.${ident(c.from)}`).join(' AND ')}`);}prev=alias.get(key);}return prev;};
+  const guard=new Set();
+  const ref=a=>{if(T.cols.some(c=>c.a===a))return `t.${ident(a)}`;
+    const h=T.inferred[a]||(M.home[a]&&M.reach(T).has(M.home[a])?M.home[a]:null);
+    if(h){const p=pathTo(M,T,h);if(p)return `${aliasFor(p)}.${ident(a)}`;}
+    const fi=T.items.find(i=>i.attr===a&&i.formula);if(fi&&!guard.has(a)){guard.add(a);const r=`(${compileFormula(M,T,fi.formula,'sql',ref).out})`;guard.delete(a);return r;}
+    return null;};
+  const sel=T.cols.map(c=>`t.${ident(c.a)}`);
+  inf.forEach(i=>{const r=ref(i.attr);if(r)sel.push(`${r} AS ${ident(i.attr)}`);});
+  fx.forEach(i=>{const c=compileFormula(M,T,i.formula,'sql',ref);if(c.unknown.length)warn.push({where:T.name,text:`Fórmula de <code>${esc(i.attr)}</code> usa ${c.unknown.map(x=>'<code>'+esc(x)+'</code>').join(', ')}, fora da tabela estendida.`});sel.push(`${c.out} AS ${ident(i.attr)}`);});
+  const name=`V_${ident(T.name)}`;
+  return{name,sql:`CREATE OR REPLACE VIEW ${S}${name} AS\nSELECT ${sel.join(',\n       ')}\n  FROM ${S}${ident(T.name)} t${joins.length?'\n  '+joins.join('\n  '):''}`};
+}
+function compileFormula(M,T,formula,mode,ref){
+  const agg=(fn,a)=>{const C=M.tables.find(c=>c.fks.some(f=>f.to===T&&!f.sub&&!f.ext)&&(c.cols.some(x=>x.a===a)||c.set.has(a)));if(!C)return null;
+    if(mode!=='sql')return `agg("${fn}","${a}")`;
+    const f=C.fks.find(f=>f.to===T&&!f.sub);const F={sum:'SUM',count:'COUNT',max:'MAX',min:'MIN',average:'AVG'}[fn];
+    const inner=`(SELECT ${F}(c.${ident(a)}) FROM ${st.opts.schema?ident(st.opts.schema)+'.':''}${ident(C.name)} c WHERE ${f.cols.map(x=>`c.${ident(x.from)} = t.${ident(x.to)}`).join(' AND ')})`;
+    return fn==='sum'||fn==='count'?`NVL(${inner}, 0)`:inner;};
+  const parts=String(formula).split(';').map(x=>x.trim()).filter(Boolean);
+  if(parts.length>1||/\s+if\s+/i.test(formula)){let unknown=[];const w=[];let els=null;
+    for(const p of parts){const m=p.match(/^(.*?)\s+if\s+(.*)$/i),mo=p.match(/^(.*?)\s+otherwise$/i);
+      if(m){const e=tx(m[1],mode,ref,agg),c=tx(m[2],mode,ref,agg);unknown.push(...e.unknown,...c.unknown);w.push([c.out,e.out]);}
+      else if(mo){const e=tx(mo[1],mode,ref,agg);unknown.push(...e.unknown);els=e.out;}}
+    const out=mode==='sql'?`CASE ${w.map(([c,e])=>`WHEN ${c} THEN ${e}`).join(' ')}${els!=null?' ELSE '+els:''} END`:w.reduceRight((acc,[c,e])=>`((${c}) ? (${e}) : ${acc})`,els??'null');
+    return{out,unknown};}
+  return tx(formula,mode,ref,agg);
+}
+function formatDDL(units,dir,onlyTrn){
+  const o=st.opts,now=new Date(),p2=n=>String(n).padStart(2,'0');
+  const stamp=`${now.getFullYear()}${p2(now.getMonth()+1)}${p2(now.getDate())}${p2(now.getHours())}${p2(now.getMinutes())}`;
+  const dt=`${p2(now.getDate())}/${p2(now.getMonth()+1)}/${now.getFullYear()} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
+  const scope=onlyTrn?st.trns.find(t=>t.id===onlyTrn).name:'todas as transações';
+  const filt=`escopo=${scope}; Oracle ${o.version}; chave=${o.identity==='identity'&&o.version!=='11g'?'IDENTITY':'SEQUENCE+trigger'}; nomes=${o.naming}; schema=${o.schema||'(sessão)'}${o.audit?'; auditoria':''}${o.versionCol?'; coluna de versão':''}`;
+  const slug=(onlyTrn?scope:'modelo').toLowerCase();
+  const fname=o.fmt==='flyway'?(dir==='up'?`V${stamp}__cria_${slug}.sql`:`U${stamp}__cria_${slug}.sql`):o.fmt==='liquibase'?`${stamp}_cria_${slug}.sql`:(dir==='up'?`cria_${slug}.sql`:`rollback_${slug}.sql`);
+  const name=dir==='up'?'Criação de estrutura':'Rollback da estrutura';
+  const h=[`-- Gerado em: ${dt}`,`-- Filtros: ${filt}`,`-- ${name} — Prancheta Database (${fname})`,''];
+  const term=s=>s.plsql?`${s.sql}\n/`:`${s.sql};`;
+  if(o.fmt==='liquibase'){
+    const L=['--liquibase formatted sql','',...h];
+    units.forEach((u,i)=>{L.push(`--changeset ${o.author||'dev'}:${stamp}-${String(i+1).padStart(2,'0')}${u.plsql?' splitStatements:false':''}`,`--comment: ${u.title}`);
+      (u.notes||[]).forEach(nn=>L.push(nn));u.up.forEach(s=>{if(s.pre)L.push(s.pre);L.push(s.plsql?s.sql:`${s.sql};`);});
+      if(u.down.length)u.down.forEach(d=>L.push(`--rollback ${d};`));else L.push('--rollback empty');L.push('');});
+    return{fname,text:L.join('\n')};
+  }
+  const L=[...h,'SET DEFINE OFF',''];
+  if(dir==='up')units.forEach(u=>{L.push(`-- ${u.title}`);(u.notes||[]).forEach(nn=>L.push(nn));u.up.forEach(s=>{if(s.pre)L.push(s.pre);L.push(term(s));});L.push('');});
+  else [...units].reverse().forEach(u=>{if(!u.down.length)return;L.push(`-- desfaz: ${u.title}`);u.down.forEach(d=>L.push(`${d};`));L.push('');});
+  return{fname,text:L.join('\n')};
+}
+
+/* ───────── API (OpenAPI + C#) e contrato de UI (JSON Schema + regras) ───────── */
+function rootOf(trn){return model.tables.find(T=>T.trn===trn&&T.depth===0);}
+function jsonProp(T,a,i){const t=eff(st.attrs[a]),p={description:(st.attrs[a]&&st.attrs[a].desc)||undefined};
+  if(t.type==='Numeric'){p.type=t.dec>0?'number':'integer';if(t.dec>0)p.multipleOf=+(1/10**t.dec).toFixed(t.dec);p.maximum=+('9'.repeat(Math.max(1,t.len-t.dec))+(t.dec?'.'+'9'.repeat(t.dec):''));}
+  else if(t.type==='Date'){p.type='string';p.format='date';}else if(t.type==='DateTime'){p.type='string';p.format='date-time';}
+  else if(t.type==='Boolean')p.type='boolean';else if(t.type==='Blob'){p.type='string';p.format='byte';}else if(t.type==='GUID'){p.type='string';p.format='uuid';}
+  else{p.type='string';if(t.len&&t.type!=='LongVarChar')p.maxLength=t.len;if(t.type==='Character'&&/Cpf$/.test(a))p.pattern='^[0-9]{11}$';}
+  const ev=enumVals(t);if(ev.length){p.enum=ev.map(x=>t.type==='Numeric'?+x.v:x.v);p['x-enum-labels']=Object.fromEntries(ev.map(x=>[x.v,x.l]));}
+  const rules=model.rules[T.trn.id]||[];
+  if(T.inferred[a]){p.readOnly=true;p['x-inferido-de']=T.inferred[a].name;}
+  if(i&&i.formula){p.readOnly=true;p['x-formula']=i.formula;}
+  if(i&&i.key&&i.auto)p.readOnly=true;
+  if(rules.some(r=>r.kind==='noaccept'&&r.attr===a))p.readOnly=true;
+  const d=rules.find(r=>r.kind==='default'&&r.attr===a);if(d)p['x-default']=d.val;
+  const fk=T.fks.find(f=>f.cols.some(c=>c.from===a));if(fk)p['x-fk']=fk.ext?`${fk.extTable}.${fk.cols[0].to}`:`${fk.to.name}.${fk.cols.find(c=>c.from===a).to}`;
+  return p;}
+function schemaFor(T){const props={},req=[];
+  T.items.forEach(i=>{props[i.attr]=jsonProp(T,i.attr,i);if((i.key&&!i.auto)||i.req||T.rx.notnull.has(i.attr))req.push(i.attr);});
+  if(st.opts.versionCol&&T.depth===0)props[`${T.prefix}Versao`]={type:'integer',description:'Versão do registro (concorrência otimista)'};
+  T.children.forEach(C=>{props[C.name]={type:'array',items:schemaFor(C)};});
+  const s={type:'object',title:T.desc||T.name,properties:props};if(req.length)s.required=req;return s;}
+function rulesJSON(trn){return(model.rules[trn.id]||[]).map(r=>{const o={linha:r.ln,tipo:r.kind,destino:r.target};
+  if(r.msg)o.mensagem=r.msg;if(r.cond){o.quando=r.cond;const T=r.table;if(T){o.js=tx(r.cond,'js',a=>`v.${a}`).out;o.sql=r.sql||undefined;}}
+  if(r.attr)o.atributo=r.attr;if(r.val)o.valor=r.val;if(r.ev)o.momentos=r.ev;if(r.attrs)o.atributos=r.attrs;if(r.table)o.nivel=r.table.name;return o;});}
+function openapi(trns){
+  const doc={openapi:'3.0.3',info:{title:`API — ${trns.map(t=>t.name).join(', ')}`,version:'1.0.0',description:'Contrato gerado pela Prancheta Database a partir da estrutura e das regras.'},paths:{},components:{schemas:{}}};
+  trns.forEach(trn=>{const T=rootOf(trn);if(!T)return;const base='/api/'+trn.name.replace(/([a-z])([A-Z])/g,'$1-$2').toLowerCase();
+    doc.components.schemas[trn.name]=schemaFor(T);const ref={$ref:`#/components/schemas/${trn.name}`};
+    const keyPath=T.key.map(k=>`{${k}}`).join('/');const params=T.key.map(k=>({name:k,in:'path',required:true,schema:jsonProp(T,k)}));
+    const err={description:'Regra de negócio violada',content:{'application/problem+json':{schema:{type:'object',properties:{title:{type:'string'},errors:{type:'array',items:{type:'string'}}}}}}};
+    doc.paths[base]={get:{summary:`Lista ${T.desc||trn.name}`,parameters:[{name:'page',in:'query',schema:{type:'integer'}},{name:'size',in:'query',schema:{type:'integer'}}],responses:{200:{description:'OK',content:{'application/json':{schema:{type:'array',items:ref}}}}}},
+      post:{summary:`Inclui ${T.desc||trn.name}`,requestBody:{required:true,content:{'application/json':{schema:ref}}},responses:{201:{description:'Criado',content:{'application/json':{schema:ref}}},422:err}}};
+    doc.paths[`${base}/${keyPath}`]={parameters:params,get:{summary:'Consulta por chave',responses:{200:{description:'OK',content:{'application/json':{schema:ref}}},404:{description:'Não encontrado'}}},
+      put:{summary:'Altera',requestBody:{required:true,content:{'application/json':{schema:ref}}},responses:{200:{description:'OK'},409:{description:'Registro alterado por outro usuário (concorrência)'},422:err}},
+      delete:{summary:'Exclui',responses:{204:{description:'Excluído'},409:{description:'Há registros dependentes (integridade referencial)'}}}};});
+  return JSON.stringify(doc,null,2);}
+function csType(t,nullable){let c;switch(t.type){case 'Numeric':c=t.dec>0?'decimal':t.len<=9?'int':'long';break;case 'Date':c='DateOnly';break;case 'DateTime':c='DateTime';break;
+  case 'Boolean':c='bool';break;case 'Blob':return 'byte[]?';case 'GUID':c='Guid';break;default:return nullable?'string?':'string';}return nullable?c+'?':c;}
+function csharp(trns){const L=['// Gerado pela Prancheta Database — DTOs e validação de servidor (.NET)','using System.ComponentModel.DataAnnotations;','','namespace Prancheta.Modelo;',''];
+  const cls=T=>{const n=T.name;L.push(`/// <summary>${esc(T.desc||n)}</summary>`,`public sealed class ${n}Dto`,'{');
+    T.cols.forEach(c=>{const t=eff(st.attrs[c.a]),i=c.it,req=c.key||(i&&i.req)||T.rx.notnull.has(c.a);const d=st.attrs[c.a]&&st.attrs[c.a].desc;
+      if(d)L.push(`    /// <summary>${d}</summary>`);const an=[];if(req&&!(i&&i.auto))an.push('Required');if(['VarChar','Character'].includes(t.type)&&t.len)an.push(`MaxLength(${t.len})`);
+      if(an.length)L.push(`    [${an.join(', ')}]`);const ty=csType(t,!req||(i&&i.auto));L.push(`    public ${ty} ${c.a} { get; set; }${ty==='string'?' = string.Empty;':''}`);});
+    T.items.filter(i=>T.inferred[i.attr]||i.formula).forEach(i=>{L.push(`    /// <summary>${T.inferred[i.attr]?'Inferido de '+T.inferred[i.attr].name:'Fórmula: '+i.formula} (somente leitura)</summary>`,`    public ${csType(eff(st.attrs[i.attr]),true)} ${i.attr} { get; init; }`);});
+    if(st.opts.versionCol&&T.depth===0)L.push('    /// <summary>Versão para concorrência otimista</summary>',`    public int ${T.prefix}Versao { get; set; }`);
+    T.children.forEach(C=>L.push(`    public List<${C.name}Dto> ${C.name} { get; set; } = [];`));L.push('}','');T.children.forEach(cls);};
+  trns.forEach(trn=>{const T=rootOf(trn);if(!T)return;cls(T);
+    const rs=(model.rules[trn.id]||[]).filter(r=>r.kind==='error'&&r.cond&&r.table);
+    L.push(`public static class ${trn.name}Regras`,'{',`    /// <summary>Mesmas regras error() da transação, reexecutadas no servidor.</summary>`,`    public static IEnumerable<string> Validar(${trn.name}Dto x)`,'    {');
+    if(!rs.length)L.push('        yield break;');
+    rs.forEach(r=>{const T2=r.table;const inLine=T2!==T;const path=[];let c=T2;while(c&&c!==T){path.unshift(c);c=c.parent;}
+      const ok=a=>T2.cols.some(cc=>cc.a===a)||T.cols.some(cc=>cc.a===a);
+      const lineVar=inLine?'l':'x';const cs=tx(r.cond,'cs',a=>ok(a)?(T2.cols.some(cc=>cc.a===a)?`${lineVar}.${a}`:`x.${a}`):(T2.items.some(i=>i.attr===a&&T2.inferred[a])?`${lineVar}.${a}`:null));
+      const ev=r.ev?` // momentos: ${r.ev.join(', ')}`:'';
+      if(cs.unknown.length){L.push(`        // linha ${r.ln}: usa ${cs.unknown.join(', ')} — validar após carregar a tabela estendida`);return;}
+      if(inLine&&path.length===1)L.push(`        foreach (var l in x.${path[0].name})${ev}`,`            if (${cs.out}) yield return "${r.msg.replace(/"/g,'\\"')}";`);
+      else if(!inLine)L.push(`        if (${cs.out}) yield return "${r.msg.replace(/"/g,'\\"')}";${ev}`);
+      else L.push(`        // linha ${r.ln}: regra em nível profundo (${T2.name}) — percorrer manualmente`);});
+    L.push('    }','}','');});
+  return L.join('\n');}
+
+/* ───────── inteligência ───────── */
+function descAttr(T){const i=T.items.find(i=>!i.key&&/(Nom|Des)$/.test(i.attr)&&!T.inferred[i.attr]);return i?i.attr:null;}
+function intel(M,D){
+  ACTS=[];const out=[];const add=(sev,where,text,label,fn)=>{const o={sev,where,text};if(fn){o.act=ACTS.length;ACTS.push(fn);o.label=label;}out.push(o);};
+  M.issues.forEach(x=>add(x.sev,x.where,x.text));D.warn.forEach(x=>add('aviso',x.where,x.text));
+  const keyTables=new Map();M.tables.forEach(T=>{if(T.key.length===1)keyTables.set(T.key[0],T);});
+  for(const T of M.tables){
+    const lvName=T.depth?`subnível ${T.name}`:T.name;
+    if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(T.name))add('erro',T.name,`Nome <code>${esc(T.name)}</code> inválido para tabela: use letras, números e _ (sem acento ou espaço).`);
+    if(!T.key.length)add('erro',T.name,`${esc(lvName)} sem chave primária. Marque <b>PK</b> num atributo.`);
+    else if(T.depth&&!T.own.length)add('erro',T.name,`Subnível sem chave própria: as linhas não se distinguem. Marque PK em um atributo do nível (ex.: <code>${esc(T.prefix)}Seq</code>).`);
+    if(T.depth===0&&!descAttr(T)&&T.items.length)add('dica',T.name,`Sem atributo descritivo (<code>…Nom</code> ou <code>…Des</code>). Ele aparece em listas, combos e telas de busca.`,'Criar '+T.prefix+'Nom',()=>addItem(T.lv,T.prefix+'Nom'));
+    if(T.depth===0&&T.own.length===1&&!T.items.find(i=>i.key).auto&&eff(st.attrs[T.own[0]]).type==='Numeric'&&!T.items.find(i=>i.key).ref)
+      add('dica',T.name,`Chave numérica simples <code>${esc(T.own[0])}</code> sem autonumeração.`,'Autonumerar',()=>{T.items.find(i=>i.key).auto=true;});
+    if(T.depth===0&&T.key.length>=2&&T.key.every(k=>keyTables.has(k)&&keyTables.get(k)!==T)&&T.inh.length===0)
+      add('info',T.name,`Tabela associativa N:N entre ${T.key.map(k=>'<b>'+esc(keyTables.get(k).name)+'</b>').join(' e ')}.`);
+    if(catTable(ident(T.name)))add('info',T.name,`<code>${ident(T.name)}</code> já existe no Oracle: o script vira <b>ALTER TABLE</b> (diff), não CREATE.`);
+    for(const f of T.fks){if(f.sub||f.ext||f.parent)continue;const da=descAttr(f.to);
+      if(da&&!T.set.has(da))add('dica',T.name,`Referencia <b>${esc(f.to.name)}</b>. Mostrar <code>${esc(da)}</code> como atributo inferido (não é gravado, vem pela FK).`,'Adicionar '+da,()=>addItem(T.lv,da));}
+    for(const i of T.items){
+      const t=eff(st.attrs[i.attr]);
+      if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(i.attr))add('erro',T.name,`Atributo <code>${esc(i.attr)}</code> com caractere inválido.`);
+      if(t.type==='VarChar'&&t.len>4000)add('aviso',T.name,`<code>${esc(i.attr)}</code> VarChar(${t.len}) passa de 4000: vira CLOB no Oracle.`);
+      const isFk=T.fks.some(f=>f.cols.some(c=>c.from===i.attr));
+      if(!i.key&&!i.ref&&!isFk){const sup=[...keyTables.keys()].filter(p=>p!==i.attr&&i.attr.startsWith(p)).sort((a,b)=>b.length-a.length)[0];
+        if(sup)add('dica',T.name,`<code>${esc(i.attr)}</code> começa com a chave <code>${esc(sup)}</code>: parece outra referência a <b>${esc(keyTables.get(sup).name)}</b> (subtipo).`,'Ligar como subtipo',()=>{i.ref=sup;const a=st.attrs[i.attr],s=st.attrs[sup];Object.assign(a,{domain:s.domain,type:s.type,len:s.len,dec:s.dec});});}
+      if(!i.key&&!isFk&&!i.ref&&!i.ext&&!i.formula&&!T.inferred[i.attr]&&/(Cod|Id)$/.test(i.attr)&&!keyTables.has(i.attr)){
+        const cand=catCandidate(i.attr);
+        if(cand)add('dica',T.name,`<code>${esc(i.attr)}</code> parece referência. No Oracle existe <code>${cand.table}(${cand.col})</code> ${catLabel(cand.c)} — ${cand.why}.`,'Ligar FK',()=>{i.ext=`${cand.table}.${cand.col}`;Object.assign(st.attrs[i.attr],catToGx(cand.c),{domain:''});});
+        else{const nm=i.attr.replace(/(Cod|Id)$/,'');add('dica',T.name,`<code>${esc(i.attr)}</code> parece referência, mas não existe transação com essa chave nem tabela no catálogo.`,'Criar transação '+nm,()=>createTrn(nm,i.attr));}}
+      if(/Cpf$/.test(i.attr)&&!T.inferred[i.attr])add('info',T.name,`<code>${esc(i.attr)}</code>: tabela nova grava CPF com 11 dígitos (CHECK). Tabelas legadas guardam CPF sem zeros à esquerda: compare por texto, nunca via número.`);
+      const cc=findCatCol(ident(i.attr));
+      if(cc&&!T.inferred[i.attr]&&!i.formula){const g=catToGx(cc.col);if(g.type!==t.type||(HASLEN(t.type)&&(g.len!==t.len||g.dec!==t.dec)))
+        add('dica',T.name,`<code>${esc(i.attr)}</code> é ${tlabel(st.attrs[i.attr])} aqui e ${catLabel(cc.col)} em <code>${cc.table}</code> no Oracle.`,'Usar tipo do Oracle',()=>Object.assign(st.attrs[i.attr],g,{domain:''}));}
+      if(T.depth===0&&!i.key&&!isFk&&!T.inferred[i.attr]&&!i.formula&&!i.attr.startsWith(T.prefix)){const B=M.tables.find(b=>b!==T&&b.depth===0&&i.attr.startsWith(b.prefix)&&b.prefix.length>=3);
+        if(B&&!M.reach(T).has(B))add('dica',T.name,`<code>${esc(i.attr)}</code> tem o prefixo de <b>${esc(B.name)}</b>. Se depende de ${esc(B.name)}, coloque-o lá e referencie pela chave.`);}
+      if(i.formula){const c=compileFormula(M,T,i.formula,'js',a=>'x');}
+    }
+  }
+  for(const a in M.multi)add('aviso',M.multi[a].map(t=>t.name).join(', '),`<code>${esc(a)}</code> é gravado em ${M.multi[a].map(t=>'<b>'+esc(t.name)+'</b>').join(' e ')} sem relação entre elas (redundância). Deixe em uma e relacione pela chave.`);
+  st.trns.forEach(trn=>(M.rules[trn.id]||[]).filter(r=>r.target==='ERRO').forEach(r=>add('erro',trn.name,`Regra linha ${r.ln}: ${r.note} <code>${esc(r.raw)}</code>`)));
+  const ord={erro:0,aviso:1,dica:2,info:3};return out.sort((a,b)=>ord[a.sev]-ord[b.sev]);
+}
+function catCandidate(attr){
+  const ent=attr.replace(/(Cod|Id)$/,''),E=ident(ent),A=ident(attr);let best=null;
+  for(const tn in st.cat.tables){const t=st.cat.tables[tn];const pks=Object.entries(t.cols).filter(([,c])=>c.pk);if(pks.length!==1)continue;const[col,c]=pks[0];
+    const core=tn.replace(/^(TB_|T_|TAB_|TBL_)/,'');let sc=0,why='';
+    if(col===A){sc=3;why='mesma coluna-chave';}else if(core===E){sc=2;why='nome da tabela = entidade';}else if(E.length>=3&&(core.startsWith(E)||col.startsWith(E))){sc=1;why='nome parecido';}
+    if(sc&&(!best||sc>best.sc))best={table:tn,col,c,sc,why};}
+  return best;}
+
+/* ───────── ações de edição ───────── */
+function allLevels(){const r=[];st.trns.forEach(trn=>{const w=(lv,p,d)=>{r.push({trn,lv,parent:p,depth:d});lv.levels.forEach(c=>w(c,lv,d+1));};w(trn.root,null,0);});return r;}
+function findItem(id){for(const x of allLevels()){const it=x.lv.items.find(i=>i.id===id);if(it)return{...x,it};}return null;}
+function findLevel(id){return allLevels().find(x=>x.lv.id===id)||null;}
+function ensureAttr(name,lv){if(!name||st.attrs[name])return null;const s=suggest(name);st.attrs[name]={type:s.type,len:s.len,dec:s.dec,domain:s.domain,desc:s.desc};return s;}
+function newItem(attr,o={}){return{id:uid(),attr,key:false,req:false,auto:false,formula:'',ref:'',ext:'',...o};}
+function addItem(lv,name){const s=ensureAttr(name,lv);const it=newItem(name);if(s&&s.ref)it.ref=s.ref;if(!lv.items.some(i=>i.key)&&!lv.items.filter(i=>i.attr).length&&/(Cod|Id|Seq)$/.test(name))it.key=true;lv.items.push(it);return it;}
+function prune(){const used=new Set();allLevels().forEach(x=>x.lv.items.forEach(i=>i.attr&&used.add(i.attr)));for(const a in st.attrs)if(!used.has(a))delete st.attrs[a];}
+function createTrn(name,keyName){name=String(name||'').trim();if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(name)){toast('Nome inválido: use letras e números, sem acento.');return null;}
+  if(st.trns.some(t=>t.name.toLowerCase()===name.toLowerCase())){toast('Já existe transação com esse nome.');return null;}
+  const trn={id:uid(),name,desc:splitCamel(name),prefix:'',rules:'',root:{id:uid(),name,desc:'',items:[],levels:[]}};st.trns.push(trn);
+  model=analyze();const p=prefixOf(name);const k=keyName||`${p}Cod`;
+  if(!st.attrs[k])ensureAttr(k);trn.root.items.push(newItem(k,{key:true,auto:eff(st.attrs[k]).type==='Numeric'}));
+  const nm=`${p}Nom`;model=analyze();ensureAttr(nm);if(st.attrs[nm]&&!st.attrs[nm].desc.includes(trn.desc.toLowerCase()))st.attrs[nm].desc=`Nome ${/a$/i.test(name)?'da':'do'} ${trn.desc.toLowerCase()}`;
+  trn.root.items.push(newItem(nm,{req:true}));st.ui.sel=trn.id;return trn;}
+
+/* ───────── render ───────── */
+const OBJ_TABS=[['est','Estrutura'],['reg','Regras'],['form','Formulário'],['ddl','Script Oracle'],['api','API']];
+const TOOLS=[['busca','Pesquisar tabelas','⌕'],['dom','Domínios','◇'],['er','Diagrama','⧉'],['db','Banco de dados','⛁'],['json','Projeto (JSON)','{}'],['lev','Como funciona','☰']];
+const SEVICO={erro:'✕',aviso:'!',dica:'◆',info:'i'};
+function selTrn(){return st.trns.find(t=>t.id===st.ui.sel)||st.trns[0]||null;}
+function trnNames(trn){const s=new Set([trn.name]);model.tables.filter(T=>T.trn===trn).forEach(T=>s.add(T.name));return s;}
+function inTrn(x,names){return String(x.where).split(', ').some(w=>names.has(w));}
+function errCount(trn){const n=trnNames(trn);return model._intel.filter(x=>x.sev==='erro'&&inTrn(x,n)).length;}
+function render(){
+  model=analyze();
+  const all=genUnits(model,null);ddlOut=all;
+  model._intel=intel(model,all);
+  renderKB();renderDoc();renderProps();renderOut();renderApiPill();
+  $('#undoN').textContent=undoStack.length?`(${undoStack.length})`:'';$('#btnUndo').disabled=!undoStack.length;
+  $('#attrNames').innerHTML=Object.keys(st.attrs).sort().map(a=>`<option value="${esc(a)}">${esc(st.attrs[a].desc||'')}</option>`).join('');
+  $('#typeNames').innerHTML=st.domains.map(d=>`<option value="${esc(d.name)}">domínio · ${esc(tlabel({domain:d.name}))}</option>`).join('')
+    +['Numeric(8)','Numeric(15.2)','Character(1)','VarChar(100)','LongVarChar','Date','DateTime','Boolean','Blob','GUID'].map(t=>`<option value="${t}"></option>`).join('');
+}
+function renderKB(){
+  const sel=selTrn(),v=st.ui.view;
+  $('#kbTrn').innerHTML=st.trns.map(t=>{const n=model.tables.filter(T=>T.trn===t).length,e=errCount(t);
+    return `<li><button data-sel="${t.id}" class="${v==='trn'&&sel&&sel.id===t.id?'on':''}" title="${esc(t.desc||t.name)}"><span class="ico">▦</span><span class="nm">${esc(t.name)}</span>${e?`<span class="dot" title="${e} erro(s)"></span>`:''}${n>1?`<small>${n} tab.</small>`:''}</button></li>`;}).join('')||'<li class="hint pad">Nenhuma transação.</li>';
+  const nc=Object.keys(st.cat.tables).length;
+  $('#kbTools').innerHTML=TOOLS.map(([id,l,ic])=>`<li><button data-tool="${id}" class="${v===id?'on':''}"><span class="ico">${ic}</span><span class="nm">${l}</span>${id==='db'&&nc?`<small>${nc} tab.</small>`:id==='dom'?`<small>${st.domains.length}</small>`:''}</button></li>`).join('');
+}
+function renderDoc(){
+  const v=st.ui.view,trn=selTrn(),tabs=$('#docTabs'),b=$('#docBody');
+  $('#ws').classList.toggle('noprops',!(v==='trn'&&st.ui.tab==='est'&&trn));
+  if(v!=='trn'){const l=TOOLS.find(x=>x[0]===v);tabs.innerHTML=`<span class="doctitle">${esc(l?l[1]:'')}</span>`;({busca:pBusca,dom:pDom,er:pER,db:pDB,json:pJSON,lev:pLev}[v]||pDom)(b);return;}
+  if(!trn){tabs.innerHTML='';b.innerHTML=`<div class="empty"><h2>Nenhuma transação</h2><p>Digite um nome em “Nova transação”, no Explorador, ou use “Carregar exemplo”.</p></div>`;return;}
+  const tab=st.ui.tab;
+  tabs.innerHTML=`<span class="doctitle">${esc(trn.name)}</span>`+OBJ_TABS.map(([id,l])=>`<button data-tab="${id}" class="${tab===id?'on':''}">${l}</button>`).join('');
+  ({est:pEst,reg:pReg,form:pForm,ddl:pDDL,api:pAPI}[tab]||pEst)(b);
+}
+function markSel(){document.querySelectorAll('tr[data-row]').forEach(tr=>tr.classList.toggle('sel',tr.dataset.row===st.ui.item));}
+function domainOpts(cur){return `<option value="">(nenhum)</option>`+st.domains.map(d=>`<option ${d.name===cur?'selected':''}>${esc(d.name)}</option>`).join('');}
+function typeText(a){return a&&a.domain?a.domain:a?tlabel(a):'';}
+// Aceita "Numeric(15.2)", "Numeric(15,2)", "VarChar(100)", "Date" ou o nome de um domínio.
+function parseType(txt){
+  const s=String(txt||'').trim();if(!s)return null;
+  const d=st.domains.find(x=>x.name.toLowerCase()===s.toLowerCase());if(d)return{domain:d.name};
+  const m=s.match(/^([A-Za-z]+)\s*(?:\(\s*(\d+)\s*(?:[.,]\s*(\d+))?\s*\))?$/);if(!m)return null;
+  const t=TYPES.find(x=>x.toLowerCase()===m[1].toLowerCase());if(!t)return null;
+  return{domain:'',type:t,len:HASLEN(t)?(+m[2]||(t==='Numeric'?10:100)):0,dec:t==='Numeric'?(+m[3]||0):0};}
+// Nível que recebe "+ Subnível"/"Colar lista": o selecionado, o do atributo selecionado ou o nível 1.
+function targetLevel(trn){const id=st.ui.item;if(id){const it=findItem(id);if(it&&it.trn===trn)return{lv:it.lv,depth:it.depth,trn};const l=findLevel(id);if(l&&l.trn===trn)return l;}return{lv:trn.root,depth:0,trn};}
+
+function pEst(b){
+  const trn=selTrn(),sel=st.ui.item;let rows='';
+  const walk=(lv,depth)=>{
+    const T=model.tables.find(t=>t.lv===lv),ind=6+depth*18;
+    rows+=`<tr class="lvrow" data-row="${lv.id}"><td colspan="2"><div class="nmcell" style="padding-left:${ind}px"><span class="tw">▾</span>${esc(depth?lv.name:trn.name)}<span class="lvinfo">${T?esc(ident(T.name)):''}</span></div></td><td colspan="3" class="lvdesc">${esc(depth?(lv.desc||''):(trn.desc||''))}</td></tr>`;
+    if(T)T.inh.forEach(k=>{rows+=`<tr class="inh"><td><div class="nmcell" style="padding-left:${ind+14}px"><span class="kico on" title="Chave herdada do nível pai">🔑</span><span class="mono">${esc(k)}</span></div></td><td class="mono dim">${esc(typeText(st.attrs[k]))}</td><td class="dim">${esc(st.attrs[k]?st.attrs[k].desc:'')}</td><td></td><td></td></tr>`;});
+    lv.items.forEach(i=>{
+      const a=st.attrs[i.attr],inf=T&&T.inferred[i.attr],fk=T&&T.fks.find(f=>f.cols.some(c=>c.from===i.attr));
+      const cls=[inf?'inferred':'',i.formula?'formula':''].join(' ');
+      const marks=(fk?`<span class="mk fk" title="Chave estrangeira → ${esc(fk.ext?fk.extTable:fk.to.name)}">FK</span>`:'')+(model.multi[i.attr]?'<span class="mk warn" title="Gravado em mais de uma tabela">!</span>':'');
+      rows+=`<tr class="${cls}" data-row="${i.id}">
+        <td><div class="nmcell" style="padding-left:${ind+14}px"><button class="kico ${i.key?'on':''}" data-act="key" data-id="${i.id}" title="${i.key?'Chave primária — clique para tirar':'Marcar como chave primária'}" aria-pressed="${i.key}">🔑</button><input id="n-${i.id}" class="cell mono" list="attrNames" data-f="attr" data-id="${i.id}" value="${esc(i.attr)}" aria-label="Nome do atributo">${marks}</div></td>
+        <td><input id="t-${i.id}" class="cell mono" list="typeNames" data-f="typetxt" data-id="${i.id}" value="${esc(typeText(a))}" ${a?'':'disabled'} aria-label="Tipo"></td>
+        <td><input id="s-${i.id}" class="cell" data-f="desc" data-id="${i.id}" value="${esc(a?a.desc:'')}" ${a?'':'disabled'} aria-label="Descrição"></td>
+        <td><input id="f-${i.id}" class="cell mono" data-f="formula" data-id="${i.id}" value="${esc(i.formula)}" ${i.key?'disabled':''} aria-label="Fórmula"></td>
+        <td class="ctr"><input id="r-${i.id}" type="checkbox" data-f="nullable" data-id="${i.id}" ${i.key||i.req?'':'checked'} ${i.key||inf||i.formula?'disabled':''} aria-label="Aceita nulo"></td></tr>`;});
+    rows+=`<tr class="newrow"><td><div class="nmcell" style="padding-left:${ind+14}px"><span class="kico ph">🔑</span><input id="new-${lv.id}" class="cell mono" list="attrNames" data-newattr="${lv.id}" placeholder="novo atributo…" aria-label="Novo atributo em ${esc(depth?lv.name:trn.name)}"></div></td><td></td><td></td><td></td><td></td></tr>`;
+    lv.levels.forEach(c=>walk(c,depth+1));};
+  walk(trn.root,0);
+  const tl=targetLevel(trn),tln=tl.depth?tl.lv.name:trn.name;
+  b.innerHTML=`<div class="gtool">
+      <button class="btn sm" data-act="sub" title="Cria um nível filho de ${esc(tln)}">+ Subnível</button>
+      <button class="btn sm" data-act="remove" ${sel&&!(tl.depth===0&&sel===trn.root.id)?'':'disabled'}>Remover</button>
+      <button class="btn sm" data-act="quicktoggle">Colar lista…</button>
+      <span class="grow"></span>
+      <span class="hint">Tipo aceita <code class="mono">Numeric(15.2)</code>, <code class="mono">VarChar(100)</code> ou um domínio. ☐ Nulo = aceita vazio.</span>
+    </div>
+    ${pEst.quick?`<div class="quickbox"><textarea id="quickTxt" placeholder="${esc(prefixOf(tln))}Cpf, ${esc(prefixOf(tln))}DatNas, CurCod, CurNom" aria-label="Lista de atributos"></textarea><button class="btn sm primary" data-act="quick">Adicionar em ${esc(tln)}</button></div>`:''}
+    <div class="gwrap"><table class="gx">
+      <colgroup><col style="width:30%"><col style="width:17%"><col style="width:33%"><col style="width:14%"><col style="width:6%"></colgroup>
+      <thead><tr><th>Nome</th><th>Tipo</th><th>Descrição</th><th>Fórmula</th><th style="text-align:center">Nulo</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  markSel();
+}
+
+/* propriedades do item selecionado (atributo, nível ou a própria transação) */
+function pr(label,ctl){return `<label>${label}</label><div class="pv">${ctl}</div>`;}
+function sugsFor(attr){if(!attr)return[];const k=`<code>${esc(attr)}</code>`;return model._intel.filter(x=>String(x.text).includes(k));}
+function sugHTML(L){return L.map(x=>`<div class="sug s-${x.sev}"><div>${x.text}</div>${x.act!=null?`<button class="btn sm" data-intel="${x.act}">${esc(x.label)}</button>`:''}</div>`).join('');}
+function renderProps(){
+  const p=$('#props'),trn=selTrn();
+  if(!(st.ui.view==='trn'&&st.ui.tab==='est'&&trn)){p.innerHTML='';return;}
+  const id=st.ui.item,it=id&&findItem(id),lvx=!it&&id&&findLevel(id);
+  if(it&&it.trn===trn){
+    const i=it.it,a=st.attrs[i.attr],t=eff(a),T=model.tables.find(x=>x.lv===it.lv),inf=T&&T.inferred[i.attr];
+    const fks=T?T.fks.filter(f=>f.cols.some(c=>c.from===i.attr)):[];const keys=model.tables.filter(x=>x.key.length===1).map(x=>x.key[0]);
+    const dis=!a||a.domain?'disabled':'';
+    let info=[];
+    if(inf)info.push(`Inferido de <b>${esc(inf.name)}</b>: não é gravado nesta tabela, vem pela chave estrangeira.`);
+    fks.forEach(f=>info.push(`Chave estrangeira para <b>${esc(f.ext?f.extTable+' (Oracle)':f.to.name)}</b>${f.sub&&!f.ext?' como subtipo':''}${f.parent?' (nível pai)':''}.`));
+    if(i.formula)info.push(`Fórmula: não é gravada; vira coluna calculada na view <code>V_${esc(ident(T?T.name:''))}</code>.`);
+    if(!inf&&!i.formula&&T)info.push(`Gravado em <code>${esc(ident(T.name))}.${esc(ident(i.attr))}</code> como <code>${esc(oraType(t))}</code>.`);
+    if(model.multi[i.attr])info.push(`<span class="chip c-warn">redundante</span> gravado em mais de uma tabela sem relação.`);
+    p.innerHTML=`<div class="pane-h"><span>Propriedades</span><span class="mono" style="text-transform:none;letter-spacing:0">${esc(i.attr||'(sem nome)')}</span></div>
+    <div class="pg">
+      <div class="pgh">Atributo (vale para todas as transações)</div>
+      ${pr('Descrição',`<input id="pd-${i.id}" data-f="desc" data-id="${i.id}" value="${esc(a?a.desc:'')}" ${a?'':'disabled'}>`)}
+      ${pr('Domínio',`<select id="pb-${i.id}" data-f="domain" data-id="${i.id}" ${a?'':'disabled'}>${domainOpts(a&&a.domain)}</select>`)}
+      ${pr('Tipo',`<select id="pt-${i.id}" data-f="type" data-id="${i.id}" ${dis}>${TYPES.map(x=>`<option ${x===t.type?'selected':''}>${x}</option>`).join('')}</select>`)}
+      ${pr('Tamanho',`<input id="pl-${i.id}" type="number" min="0" data-f="len" data-id="${i.id}" value="${HASLEN(t.type)?t.len:''}" ${dis||(!HASLEN(t.type)?'disabled':'')}>`)}
+      ${pr('Decimais',`<input id="pc-${i.id}" type="number" min="0" data-f="dec" data-id="${i.id}" value="${t.type==='Numeric'?t.dec:''}" ${dis||(t.type!=='Numeric'?'disabled':'')}>`)}
+      <div class="pgh">Nesta transação</div>
+      ${pr('Chave primária',`<input id="pk-${i.id}" type="checkbox" data-f="key" data-id="${i.id}" ${i.key?'checked':''}>`)}
+      ${pr('Autonumerar',`<input id="pa-${i.id}" type="checkbox" data-f="auto" data-id="${i.id}" ${i.auto?'checked':''} ${i.key&&t.type==='Numeric'?'':'disabled'}>`)}
+      ${pr('Obrigatório',`<input id="pq-${i.id}" type="checkbox" data-f="req" data-id="${i.id}" ${i.key||i.req?'checked':''} ${i.key||inf||i.formula?'disabled':''}>`)}
+      ${pr('Fórmula',`<input id="pf-${i.id}" class="mono" data-f="formula" data-id="${i.id}" value="${esc(i.formula)}" ${i.key?'disabled':''} placeholder="ex.: sum(LinVlr)">`)}
+      ${pr('Subtipo de',`<select id="pu-${i.id}" data-f="ref" data-id="${i.id}"><option value="">(nenhum)</option>${keys.filter(k=>k!==i.attr).map(k=>`<option ${k===i.ref?'selected':''}>${esc(k)}</option>`).join('')}${i.ext?`<option selected value="${esc(i.ext)}">${esc(i.ext)} (Oracle)</option>`:''}</select>`)}
+    </div>
+    <div class="pnote">${info.map(x=>`<div>${x}</div>`).join('')}${sugHTML(sugsFor(i.attr))}</div>
+    <div class="pact"><button class="btn sm danger" data-act="del" data-id="${i.id}">Remover atributo</button></div>`;
+    return;}
+  if(lvx&&lvx.depth>0&&lvx.trn===trn){const lv=lvx.lv,T=model.tables.find(x=>x.lv===lv);
+    p.innerHTML=`<div class="pane-h"><span>Propriedades</span><span>Nível</span></div>
+    <div class="pg"><div class="pgh">Nível ${lvx.depth+1}</div>
+      ${pr('Nome',`<input id="lvn-${lv.id}" class="mono" data-lf="name" data-lv="${lv.id}" value="${esc(lv.name)}">`)}
+      ${pr('Descrição',`<input id="lvd-${lv.id}" data-lf="desc" data-lv="${lv.id}" value="${esc(lv.desc||'')}">`)}
+      ${pr('Tabela',`<span class="ro">${T?esc(ident(T.name)):''}</span>`)}
+      ${pr('Chave',`<span class="ro" title="${T?esc(T.key.join(', ')):''}">${T?esc(T.key.join(', ')):''}</span>`)}
+    </div>
+    <div class="pnote hint">A chave do nível pai entra na chave deste nível (chave composta).</div>
+    <div class="pact"><button class="btn sm danger" data-act="dellv" data-lv="${lv.id}">Remover nível</button></div>`;
+    return;}
+  const Ts=model.tables.filter(T=>T.trn===trn);
+  p.innerHTML=`<div class="pane-h"><span>Propriedades</span><span>Transação</span></div>
+  <div class="pg"><div class="pgh">Transação</div>
+    ${pr('Nome',`<input id="trn-name" class="mono" data-tf="name" value="${esc(trn.name)}">`)}
+    ${pr('Descrição',`<input id="trn-desc" data-tf="desc" value="${esc(trn.desc||'')}">`)}
+    ${pr('Prefixo',`<input id="trn-pfx" class="mono" data-tf="prefix" value="${esc(trn.prefix||'')}" placeholder="${esc(prefixOf(trn.name))}">`)}
+    <div class="pgh">Tabelas geradas</div>
+    ${Ts.map(T=>pr(esc(ident(T.name)),`<span class="ro" title="chave (${esc(T.key.join(', '))})">(${esc(T.key.join(', '))})</span>`)).join('')}
+  </div>
+  <div class="pnote hint">Selecione uma linha da estrutura para ver as propriedades do atributo ou do nível.</div>
+  <div class="pact"><button class="btn sm danger" data-act="deltrn">Excluir transação</button></div>`;
+}
+
+/* janela de saída: erros, avisos e sugestões */
+function renderOut(){
+  const trn=selTrn(),all=model._intel,names=trn?trnNames(trn):new Set();
+  const L=st.ui.outAll||!trn?all:all.filter(x=>inTrn(x,names));
+  const cnt=s=>L.filter(x=>x.sev===s).length;
+  $('#outHead').innerHTML=`<button class="ohbtn" data-act="outtoggle" aria-expanded="${!!st.ui.outOpen}">${st.ui.outOpen?'▾':'▸'} Saída</button>
+    <span class="oc err"><b>${cnt('erro')}</b> erro(s)</span><span class="oc warn"><b>${cnt('aviso')}</b> aviso(s)</span><span class="oc tip"><b>${cnt('dica')}</b> sugestão(ões)</span>
+    <span class="grow"></span><label class="hint" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="outAll" ${st.ui.outAll?'checked':''}> todas as transações</label>`;
+  const body=$('#outBody');body.hidden=!st.ui.outOpen;
+  if(st.ui.outOpen)body.innerHTML=L.length?`<table class="otb">${L.map(x=>`<tr class="s-${x.sev}"><td class="sv" title="${esc(x.sev)}">${SEVICO[x.sev]}</td><td class="wh">${esc(x.where)}</td><td>${x.text}</td><td class="ac">${x.act!=null?`<button class="btn sm" data-intel="${x.act}">${esc(x.label)}</button>`:''}</td></tr>`).join('')}</table>`:'<p class="hint pad">Nada a apontar.</p>';
+}
+
+/* regras */
+function pReg(b){
+  const trn=selTrn(),rules=model.rules[trn.id]||[];
+  const tcol={CHECK:'c-pk',DEFAULT:'c-pk','NOT NULL':'c-pk',UNIQUE:'c-pk',TRIGGER:'c-fk','APLICAÇÃO':'c-st',ERRO:'c-err'};
+  b.innerHTML=`<textarea id="trn-rules" class="rulesed" data-tf="rules" spellcheck="false" aria-label="Regras da transação">${esc(trn.rules||'')}</textarea>
+  <details class="syn"><summary>Sintaxe aceita</summary><div class="syntax"><code>error('msg') if cond;</code> <code>msg('msg') if cond;</code> <code>default(Atr, valor);</code> <code>noaccept(Atr);</code> <code>required(Atr);</code> <code>unique(A, B);</code> <code>serial(Linha, UltimaLinha, 1);</code> <code>add(Atr, Total);</code> <code>subtract(Atr, Total);</code> e o sufixo <code>on BeforeInsert | BeforeUpdate | BeforeDelete…</code>. Condições: <code>and or not = &lt;&gt; &lt; &gt;</code>, <code>Atr.IsEmpty()</code>, <code>Today()</code>, <code>Now()</code>.<br>Fórmulas (coluna Fórmula da estrutura): <code>Qtd * Vlr</code>, <code>sum(LinVlr)</code>, <code>count(Atr)</code>, <code>max/min/average(Atr)</code>, <code>X if cond; Y otherwise;</code></div></details>
+  <div class="sec-h">Para onde vai cada regra</div>
+  ${rules.length?`<div class="tbl-wrap"><table class="otb"><thead><tr><th>Linha</th><th>Destino</th><th>Regra</th><th>No banco / observação</th></tr></thead><tbody>${rules.map(r=>`<tr><td>${r.ln}</td><td><span class="chip ${tcol[r.target]||'c-st'}">${esc(r.target)}</span></td><td class="mono">${esc(r.raw)}</td><td><code>${r.table?esc(ident(r.table.name))+': ':''}${esc(r.sql)}</code>${r.note?' — '+r.note:''}</td></tr>`).join('')}</tbody></table></div>`:'<p class="hint">Sem regras.</p>'}`;
+}
+
+/* script Oracle + conferência/execução pela API */
+function unitsFor(){const trn=selTrn();const only=st.ui.ddlScope==='trn'&&trn?trn.id:null;return{only,g:only?genUnits(model,only):ddlOut};}
+function cmdsOf(units){return units.flatMap(u=>u.up.map(s=>({sql:s.sql,plsql:!!s.plsql})));}
+function pDDL(b){
+  const o=st.opts,ui=st.ui,trn=selTrn();const{only,g}=unitsFor();const f=formatDDL(g.units,ui.ddlView,only);pDDL.last=f.text;
+  const sel=(id,k,opts)=>`<label class="f">${id}<select id="o-${k}" data-opt="${k}">${opts.map(([v,l])=>`<option value="${v}" ${o[k]===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
+  const cb=(k,l)=>`<label><input type="checkbox" id="o-${k}" data-opt="${k}" ${o[k]?'checked':''}> ${l}</label>`;
+  const on=api.saude&&api.saude.conectado;
+  b.innerHTML=`<div class="gtool">
+    <div class="seg"><button data-ddlview="up" class="${ui.ddlView==='up'?'on':''}">${o.fmt==='flyway'?'Migration (V)':'Criação'}</button><button data-ddlview="down" class="${ui.ddlView==='down'?'on':''}" ${o.fmt==='liquibase'?'disabled title="No Liquibase o rollback vai em cada changeset"':''}>${o.fmt==='flyway'?'Undo (U)':'Rollback'}</button></div>
+    <div class="seg"><button data-ddlscope="trn" class="${ui.ddlScope==='trn'?'on':''}">Só ${esc(trn.name)}</button><button data-ddlscope="all" class="${ui.ddlScope!=='trn'?'on':''}">Todas</button></div>
+    <span class="grow"></span>
+    <button class="btn sm" data-copy="ddl">Copiar SQL</button>
+    <button class="btn sm primary" data-act="apiconf" ${on&&ui.ddlView==='up'&&!api.busy?'':'disabled'} title="${on?'Compara o script com o dicionário do Oracle, sem executar nada':'Ligue a API em Banco de dados'}">${api.busy==='conf'?'Conferindo…':'Conferir no banco'}</button>
+  </div>
+  <details id="optsBox" ${ui.optsOpen?'open':''}><summary>Opções de geração</summary>
+    <div class="opts">
+      <label class="f">Schema<input id="o-schema" class="mono" data-opt="schema" value="${esc(o.schema)}" placeholder="(da sessão)"></label>
+      ${sel('Versão Oracle','version',[['11g','11g (30 caract.)'],['12c','12c (30 caract.)'],['19c','12.2+ / 19c (128)']])}
+      ${sel('Chave automática','identity',[['identity','IDENTITY'],['sequence','SEQUENCE + trigger']])}
+      ${sel('Nomes','naming',[['curto','Curto (I…)'],['desc','Descritivo (PK_, FK_)']])}
+      ${sel('DateTime','dt',[['DATE','DATE'],['TIMESTAMP','TIMESTAMP']])}
+      ${sel('Semântica texto','charSem',[['CHAR','CHAR'],['BYTE','BYTE']])}
+      ${sel('Formato','fmt',[['script','Script SQL'],['flyway','Flyway'],['liquibase','Liquibase (SQL)']])}
+      ${o.fmt==='liquibase'?`<label class="f">Autor changeset<input id="o-author" class="mono" data-opt="author" value="${esc(o.author)}"></label>`:''}
+    </div>
+    <div class="checks">${cb('fk','Declarar FKs')}${cb('cascade','Cascata nos subníveis')}${cb('comments','COMMENT ON')}${cb('views','Views da tabela estendida')}${cb('audit','Colunas de auditoria')}${cb('versionCol','Coluna de versão (concorrência)')}</div>
+    ${o.identity==='identity'&&o.version==='11g'?'<p class="hint">11g não tem IDENTITY: usando SEQUENCE + trigger.</p>':''}
+  </details>
+  ${apiResultHTML(f.text,g.units)}
+  <div class="fname">${esc(f.fname)} · ${g.units.length} unidades</div>
+  ${codeBlock('ddl-pre',f.text,'sql')}`;
+}
+function apiResultHTML(text){
+  const A=api.analise;let h='';
+  if(A){const stale=api.analiseTxt!==text;const cls={novo:'c-ok',ok:'c-ok',altera:'c-pk',substitui:'c-warn',falha:'c-err',bloqueado:'c-err',remove:'c-err'};
+    const nBad=A.itens.filter(x=>['falha','bloqueado'].includes(x.situacao)).length;
+    h+=`<div class="box"><div class="bar-row"><b>Conferência no banco${A.owner?' · '+esc(A.owner):''}</b><span class="hint">${stale?'<span class="chip c-warn">script mudou — confira de novo</span>':nBad?`<span class="chip c-err">${nBad} comando(s) vão falhar</span>`:'<span class="chip c-ok">nenhum conflito encontrado</span>'}</span></div>
+    <div class="tbl-wrap" style="max-height:220px;overflow:auto"><table class="otb"><thead><tr><th>#</th><th>Comando</th><th>Objeto</th><th>Situação</th><th>Observação</th></tr></thead><tbody>${A.itens.map(x=>`<tr><td>${x.ordem}</td><td>${esc(x.tipo)}</td><td class="mono">${esc(x.objeto||'')}</td><td><span class="chip ${cls[x.situacao]||'c-st'}">${esc(x.situacao)}</span></td><td>${esc(x.aviso||'')}</td></tr>`).join('')}</tbody></table></div>`;
+    if(api.saude&&api.saude.podeExecutar)h+=`<div class="execbox"><b>Executar no ${esc(api.saude.ambiente)}</b><span class="hint" style="color:inherit">como ${esc(api.saude.usuario||'')} · comandos em ordem, para no primeiro erro · sem DROP</span><span class="grow"></span><input id="execConf" class="mono" placeholder="digite EXECUTAR" aria-label="Confirmação" autocomplete="off"><button class="btn sm primary" data-act="apiexec" ${stale||api.busy?'disabled':''}>${api.busy==='exec'?'Executando…':'Executar'}</button></div>`;
+    else h+=`<p class="hint">Execução desligada: a API só executa com <code class="mono">PRANCHETA_AMBIENTE=desenv</code>. Copie o script e rode no SQL Developer.</p>`;
+    h+='</div>';}
+  const E=api.exec;
+  if(E)h+=`<div class="box"><div class="bar-row"><b>Execução</b><span>${E.interrompido?`<span class="chip c-err">interrompida: ${E.aplicados} de ${E.total} aplicados</span>`:`<span class="chip c-ok">${E.aplicados} de ${E.total} aplicados</span>`}</span></div>
+    <div class="tbl-wrap" style="max-height:200px;overflow:auto"><table class="otb"><thead><tr><th>#</th><th>Resultado</th><th>ms</th><th>Erro</th></tr></thead><tbody>${E.resultados.map(r=>`<tr><td>${r.ordem}</td><td><span class="chip ${r.ok?'c-ok':'c-err'}">${r.ok?'ok':'erro'}</span></td><td>${r.ms??''}</td><td class="mono">${esc(r.erro||'')}</td></tr>`).join('')}</tbody></table></div>
+    <div><button class="btn sm" data-act="apicat">Reler catálogo</button></div></div>`;
+  return h;}
+
+/* conexão com a API local (prancheta-api) */
+const API_KEY='prancheta-api';
+// Aberta pelo executável, a página vem da própria API (meta "prancheta-api"); aberta do disco, usa o endereço salvo.
+const API_MESMA_ORIGEM=!!document.querySelector('meta[name="prancheta-api"]')&&location.protocol.startsWith('http');
+const api={url:API_MESMA_ORIGEM?location.origin:(()=>{try{return localStorage.getItem(API_KEY)||'http://127.0.0.1:5080';}catch(e){return 'http://127.0.0.1:5080';}})(),saude:null,erro:'',busy:'',analise:null,analiseTxt:'',exec:null,owner:'',filtro:''};
+async function apiCall(path,opt={}){
+  const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),opt.timeout||20000);
+  try{const r=await fetch(api.url.replace(/\/+$/,'')+path,{method:opt.body?'POST':'GET',headers:opt.body?{'Content-Type':'application/json'}:{},body:opt.body?JSON.stringify(opt.body):undefined,signal:ctl.signal});
+    const txt=await r.text();let j=null;try{j=JSON.parse(txt);}catch(e){}
+    if(r.status===409&&path!=='/api/saude'){api.saude=null;renderApiPill();showLogin('A conexão com o Oracle foi perdida. Conecte de novo.',true);}
+    if(!r.ok)throw new Error((j&&(r.status===409?j.title:(j.detail||j.title)))||`HTTP ${r.status}`);return j;}
+  catch(e){if(e.name==='AbortError')throw new Error('A API não respondeu a tempo.');if(e instanceof TypeError)throw new Error(`API não encontrada em ${api.url}. Ela está rodando?`);throw e;}
+  finally{clearTimeout(tm);}}
+function refreshApiViews(){renderApiPill();renderKB();if(st.ui.view==='db'||(st.ui.view==='trn'&&st.ui.tab==='ddl'))renderDoc();}
+function renderApiPill(){const el=$('#apiPill'),s=api.saude;
+  el.className='pill '+(api.busy==='saude'?'busy':s&&s.conectado?'ok':api.erro||(s&&!s.conectado)?'bad':'');
+  const txt=api.busy==='saude'?'Conectando…':s&&s.conectado?['Oracle',s.usuario,s.ambiente||'somente leitura'].filter(Boolean).join(' · '):'Oracle desconectado';
+  el.innerHTML=`<i></i><span class="pt">${esc(txt)}</span>`;el.title=txt;}
+async function apiTest(silent){api.busy='saude';refreshApiViews();
+  try{api.saude=await apiCall('/api/saude',{timeout:8000});api.erro=api.saude.conectado?'':(api.saude.erro||'Sem conexão');if(!silent)toast(api.saude.conectado?'Conectado ao Oracle':api.erro);}
+  catch(e){api.saude=null;api.erro=e.message;if(!silent)toast(e.message);}
+  api.busy='';refreshApiViews();
+  if(!(api.saude&&api.saude.conectado))showLogin(api.saude?'A conexão com o Oracle foi perdida. Conecte de novo.':apiDownMsg(),true);}
+async function apiCatalog(){api.busy='cat';refreshApiViews();
+  try{const q=new URLSearchParams();if(api.owner)q.set('owner',api.owner);if(api.filtro)q.set('filtro',api.filtro);
+    const r=await apiCall('/api/catalogo?'+q,{timeout:180000});
+    mut(()=>{st.cat={tables:r.tables||{},loadedAt:`${new Date().toLocaleString('pt-BR')} · ${r.owner}${r.filtro&&r.filtro!=='%'?' · '+r.filtro:''}`};});
+    toast(`${r.tabelas} tabelas lidas de ${r.owner}`);}
+  catch(e){toast('Catálogo: '+e.message);}
+  api.busy='';refreshApiViews();}
+async function apiConfer(){const{g}=unitsFor();const text=formatDDL(g.units,'up',unitsFor().only).text;api.busy='conf';api.exec=null;refreshApiViews();
+  try{api.analise=await apiCall('/api/analisar',{body:{owner:st.opts.schema||null,comandos:cmdsOf(g.units),permitirDrop:false},timeout:120000});api.analiseTxt=text;}
+  catch(e){api.analise=null;toast('Conferência: '+e.message);}
+  api.busy='';refreshApiViews();}
+async function apiExec(){const c=$('#execConf');if(!c||c.value!=='EXECUTAR'){toast('Digite EXECUTAR, em maiúsculas, para confirmar.');if(c)c.focus();return;}
+  const{g}=unitsFor();api.busy='exec';refreshApiViews();
+  try{api.exec=await apiCall('/api/executar',{body:{owner:st.opts.schema||null,comandos:cmdsOf(g.units),confirmacao:'EXECUTAR',permitirDrop:false},timeout:600000});api.analise=null;
+    toast(api.exec.interrompido?'Execução interrompida no primeiro erro':'Script aplicado');}
+  catch(e){toast('Execução: '+e.message);}
+  api.busy='';refreshApiViews();}
+function pDB(b){
+  const s=api.saude,n=Object.keys(st.cat.tables).length,on=s&&s.conectado;
+  const stat=api.busy==='saude'?'<div class="status">Conectando…</div>':on?`<div class="status ok">Conectado como <b>${esc(s.usuario)}</b> em <b>${esc(s.banco||'')}</b> · Oracle ${esc(s.versao||'')} · ${s.ambiente?`ambiente <b>${esc(s.ambiente)}</b>`:'ambiente não informado'}${s.podeExecutar?' · execução permitida':' · somente leitura'}</div>`
+    :`<div class="status ${api.erro?'bad':''}">${esc(api.erro||'Ainda não testado.')}</div>`;
+  b.innerHTML=`<div class="box"><b>Conexão</b>
+    ${stat}
+    <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" data-act="apitest" ${api.busy?'disabled':''}>Testar de novo</button><button class="btn sm" data-act="logout">Desconectar</button></div>
+    <p class="hint" style="margin:0">A conexão é feita pela API local <code class="mono">prancheta-api</code> (${esc(api.url)}), que só aceita chamadas desta máquina e guarda a conexão só na memória.</p>
+  </div>
+  <div class="box"><b>Catálogo do Oracle</b>
+    <p class="hint" style="margin:0">Com o catálogo, a Saída sugere FK para tabelas que já existem, aponta tipos divergentes e o script vira <b>ALTER TABLE</b> para tabelas existentes.</p>
+    <div class="frow"><label class="f">Owner<input id="catOwner" class="mono" value="${esc(api.owner)}" placeholder="(usuário da conexão)"></label><label class="f">Filtro de tabela<input id="catFiltro" class="mono" value="${esc(api.filtro)}" placeholder="ex.: TB_*"></label><button class="btn sm primary" data-act="apicat" ${on&&!api.busy?'':'disabled'}>${api.busy==='cat'?'Lendo…':'Ler catálogo'}</button></div>
+    <div class="bar-row"><span class="hint">${n?`${n} tabelas carregadas · ${esc(st.cat.loadedAt)}`:'Nenhum catálogo carregado.'}</span>${n?'<button class="btn sm ghost" data-act="catclear">Limpar catálogo</button>':''}</div>
+    <details><summary>Sem a API: colar o resultado da consulta</summary>
+      <p class="hint">Rode a consulta no SQL Developer informando o owner, copie o grid inteiro (Ctrl+A, Ctrl+C) ou exporte CSV com <code class="mono">;</code> e cole abaixo.</p>
+      <div class="bar-row"><span class="fname">consulta do catálogo</span><button class="btn sm" data-copy="catsql">Copiar consulta</button></div>
+      ${codeBlock('cat-sql',CAT_SQL,'sql')}
+      <textarea id="catPaste" class="big" placeholder="TABLE_NAME	COLUMN_NAME	DATA_TYPE	CHAR_LENGTH	DATA_PRECISION	DATA_SCALE	NULLABLE	PK	FK"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn sm primary" data-act="catload">Carregar colado</button><button class="btn sm" data-act="catdemo">Usar catálogo de exemplo</button></div>
+    </details>
+    ${n?`<div class="tbl-wrap" style="max-height:320px;overflow:auto"><table class="tb"><thead><tr><th>Tabela</th><th>Colunas</th><th>PK</th><th>Na prancheta</th></tr></thead><tbody>${Object.entries(st.cat.tables).slice(0,500).map(([tn,t])=>{const cs=Object.keys(t.cols);return `<tr><td class="mono">${esc(tn)}</td><td>${cs.length}</td><td class="mono">${esc(cs.filter(c=>t.cols[c].pk).join(', '))}</td><td>${model.tables.some(T=>ident(T.name)===tn)?'<span class="chip c-warn">vira ALTER</span>':''}</td></tr>`;}).join('')}</tbody></table></div>`:''}
+  </div>`;
+}
+
+function hl(text,lang){
+  return text.split('\n').map(line=>{
+    if(lang==='sql'&&/^\s*--/.test(line))return `<span class="c">${esc(line)}</span>`;
+    if(lang==='cs'&&/^\s*\/\//.test(line))return `<span class="c">${esc(line)}</span>`;
+    const parts=line.split(lang==='sql'?/('(?:[^']|'')*')/:/("(?:[^"\\]|\\.)*")/);
+    return parts.map((p,i)=>{if(i%2)return `<span class="s">${esc(p)}</span>`;let e=esc(p);
+      const kw=lang==='sql'?/\b(CREATE|OR|REPLACE|TABLE|SEQUENCE|VIEW|TRIGGER|INDEX|UNIQUE|ALTER|ADD|DROP|CONSTRAINT|PRIMARY|FOREIGN|KEY|REFERENCES|ON|DELETE|CASCADE|CHECK|NOT|NULL|DEFAULT|COMMENT|IS|COLUMN|SELECT|FROM|LEFT|JOIN|AS|AND|IN|BEFORE|AFTER|INSERT|UPDATE|FOR|EACH|ROW|BEGIN|END|IF|THEN|ELSE|CASE|WHEN|DECLARE|SET|WHERE|RETURNING|INTO|GENERATED|BY|IDENTITY|START|WITH|INCREMENT|INSERTING|UPDATING|DELETING|CONSTRAINTS|DEFINE|OFF)\b/g
+        :lang==='cs'?/\b(using|namespace|public|sealed|class|static|get|set|init|if|foreach|var|in|yield|return|break|string|int|long|decimal|bool|byte|DateOnly|DateTime|Guid|List|IEnumerable)\b/g:/("[\w$-]+")(?=\s*:)/g;
+      e=e.replace(kw,lang==='json'?'<span class="k">$1</span>':'<span class="k">$&</span>');
+      if(lang==='sql')e=e.replace(/\b(NUMBER|VARCHAR2|CHAR|DATE|TIMESTAMP|CLOB|BLOB|NVL|TRUNC|SYSDATE|REGEXP_LIKE|SYS_CONTEXT|RAISE_APPLICATION_ERROR|SUM|COUNT|AVG|MAX|MIN|NEXTVAL|USER)\b/g,'<span class="n">$&</span>');
+      return e;}).join('');}).join('\n');}
+function codeBlock(id,text,lang){return `<pre class="code" id="${id}">${hl(text,lang)}</pre>`;}
+function pAPI(b){
+  const ui=st.ui,trn=selTrn();if(!trn){b.innerHTML='<p class="hint">Sem transação.</p>';return;}
+  const v=ui.apiView;const text=v==='openapi'?openapi([trn]):v==='cs'?csharp([trn]):JSON.stringify({transacao:trn.name,regras:rulesJSON(trn)},null,2);pAPI.last=text;
+  b.innerHTML=`<div class="bar-row"><div class="seg"><button data-apiview="openapi" class="${v==='openapi'?'on':''}">OpenAPI</button><button data-apiview="cs" class="${v==='cs'?'on':''}">C# DTO + regras</button><button data-apiview="rules" class="${v==='rules'?'on':''}">Regras (JSON)</button></div><button class="btn sm primary" data-copy="api">Copiar</button></div>
+  <p class="hint">Saída independente do banco. ${v==='rules'?'Cada regra carrega a expressão original, a versão JS (cliente) e o destino no banco: a mesma regra roda no browser, na API e no Oracle.':v==='cs'?'Regras <code class="mono">error()</code> viram <code class="mono">Validar()</code>, para reexecutar no servidor o que o formulário já validou.':'CRUD com 422 para regra violada e 409 para concorrência e integridade referencial.'}</p>
+  ${codeBlock('api-pre',text,v==='cs'?'cs':'json')}`;
+}
+function pER(b){
+  const Ts=model.tables,W=230,RH=17,HH=26,GX=70,GY=26;const rank=new Map();
+  const rk=(T,seen=new Set())=>{if(rank.has(T))return rank.get(T);if(seen.has(T))return 0;seen.add(T);const r=T.fks.filter(f=>!f.ext&&f.to!==T).reduce((m,f)=>Math.max(m,1+rk(f.to,seen)),0);rank.set(T,r);return r;};
+  Ts.forEach(T=>rk(T));const exts=[...new Set(Ts.flatMap(T=>T.fks.filter(f=>f.ext).map(f=>f.extTable)))];
+  const cols=[];const off=exts.length?1:0;exts.forEach(e=>{(cols[0]??=[]).push({ext:e});});
+  Ts.forEach(T=>{const r=rank.get(T)+off;(cols[r]??=[]).push({T});});
+  const pos=new Map();let H=0;
+  cols.forEach((c,ci)=>{let y=16;(c||[]).forEach(n=>{const rows=n.ext?[]:[...n.T.cols.map(x=>({t:x.a,k:x.key,fk:n.T.fks.some(f=>f.cols.some(cc=>cc.from===x.a))})),...n.T.items.filter(i=>i.formula||n.T.inferred[i.attr]).map(i=>({t:i.attr,dim:true}))];
+    const h=HH+Math.max(1,rows.length)*RH+8;pos.set(n.ext||n.T,{x:16+ci*(W+GX),y,h,rows,n});y+=h+GY;});H=Math.max(H,y);});
+  const Wt=16+cols.length*(W+GX);let svg='';
+  Ts.forEach(T=>T.fks.forEach(f=>{const a=pos.get(T),z=pos.get(f.ext?f.extTable:f.to);if(!a||!z)return;
+    let x1=a.x,y1=a.y+HH/2,x2=z.x+W,y2=z.y+HH/2;if(z===a){x2=a.x+W;y2=a.y+HH+8;x1=a.x+W;y1=a.y+HH/2+2;svg+=`<path class="er-line x" d="M${x1} ${y1} C ${x1+40} ${y1}, ${x1+40} ${y2}, ${x2} ${y2}"/>`;return;}
+    if(x2>x1){x2=z.x;x1=a.x+W;}const mx=(x1+x2)/2;
+    svg+=`<path class="er-line ${f.parent?'p':''} ${f.sub||f.ext?'x':''}" d="M${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}"/><circle class="er-dot" cx="${x2}" cy="${y2}" r="3"/>`;}));
+  pos.forEach(p=>{const ext=p.n.ext;svg+=`<rect class="${ext?'er-ext':'er-box'}" x="${p.x}" y="${p.y}" width="${W}" height="${p.h}" rx="6"/>`;
+    if(!ext)svg+=`<rect class="er-head" x="${p.x+1}" y="${p.y+1}" width="${W-2}" height="${HH-2}" rx="5"/>`;
+    svg+=`<text class="er-title" x="${p.x+10}" y="${p.y+17}">${esc(ext?ext+' (Oracle)':ident(p.n.T.name))}</text>`;
+    p.rows.forEach((r,i)=>{svg+=`<text class="er-col ${r.k?'er-pk':''} ${r.fk&&!r.k?'er-fkc':''} ${r.dim?'er-dim':''}" x="${p.x+10}" y="${p.y+HH+13+i*RH}">${r.k?'🔑 ':''}${esc(r.t)}${r.fk?' ↗':''}</text>`;});});
+  b.innerHTML=`<p class="hint">Referenciadas à esquerda. Linha azul: nível pai. Tracejado: subtipo ou tabela existente no Oracle. Itálico: inferido/fórmula (não gravado).</p>
+  <div class="er-wrap"><svg width="${Wt}" height="${Math.max(H,120)}" viewBox="0 0 ${Wt} ${Math.max(H,120)}" role="img" aria-label="Diagrama entidade-relacionamento">${svg}</svg></div>`;
+}
+const CAT_SQL=`SELECT c.table_name, c.column_name, c.data_type,
+       c.char_length, c.data_precision, c.data_scale, c.nullable,
+       (SELECT 'S' FROM all_cons_columns pc
+          JOIN all_constraints p ON p.owner = pc.owner AND p.constraint_name = pc.constraint_name
+         WHERE p.constraint_type = 'P' AND pc.owner = c.owner
+           AND pc.table_name = c.table_name AND pc.column_name = c.column_name
+           AND ROWNUM = 1) AS pk,
+       (SELECT r.table_name || '.' || rc.column_name FROM all_cons_columns fc
+          JOIN all_constraints f ON f.owner = fc.owner AND f.constraint_name = fc.constraint_name AND f.constraint_type = 'R'
+          JOIN all_constraints r ON r.owner = f.r_owner AND r.constraint_name = f.r_constraint_name
+          JOIN all_cons_columns rc ON rc.owner = r.owner AND rc.constraint_name = r.constraint_name AND rc.position = fc.position
+         WHERE fc.owner = c.owner AND fc.table_name = c.table_name AND fc.column_name = c.column_name
+           AND ROWNUM = 1) AS fk
+  FROM all_tab_columns c
+ WHERE c.owner = UPPER(:owner)
+ ORDER BY c.table_name, c.column_id`;
+function parseCatalog(text){
+  const tables={};let n=0;
+  text.split(/\r?\n/).forEach(line=>{if(!line.trim())return;const sep=line.includes('\t')?'\t':line.includes(';')?';':',';
+    const p=line.split(sep).map(x=>x.trim().replace(/^"|"$/g,''));if(p.length<3||/^TABLE_NAME$/i.test(p[0]))return;
+    const[tn,cn,type,len,prec,scale,nul,pk,fk]=p;if(!tn||!cn)return;
+    (tables[tn.toUpperCase()]??={cols:{}}).cols[cn.toUpperCase()]={type:(type||'').toUpperCase(),len:+len||0,prec:prec&&prec!=='(null)'?+prec:0,scale:scale&&scale!=='(null)'?+scale:0,nullable:nul!=='N',pk:/^S|Y$/i.test(pk||''),fk:fk&&fk!=='(null)'?fk:''};n++;});
+  return{tables,n};}
+const DEMO_CAT=`TB_CLIENTE	CLIENTEID	NUMBER		10	0	N	S
+TB_CLIENTE	CLINOM	VARCHAR2	120			N
+TB_CLIENTE	CLICPF	CHAR	11			Y
+PESSOA	PESCOD	NUMBER		9	0	N	S
+PESSOA	PESNOM	VARCHAR2	150			N
+ALUNO	ALUCOD	NUMBER		8	0	N	S
+ALUNO	ALUNOM	VARCHAR2	100			N
+ALUNO	PESCOD	NUMBER		9	0	Y		PESSOA.PESCOD`;
+
+/* pesquisa de tabelas existentes no Oracle, para usar como base de uma nova transação */
+const busca={nome:'',owner:'',lista:null,termo:'',det:null,novo:'',busy:''};
+function oraTipo(c){const t=String(c.type||'').toUpperCase();
+  if(t==='NUMBER'||t==='INTEGER'){if(c.prec)return{type:'Numeric',len:c.prec,dec:c.scale||0};return c.scale>0?{type:'Numeric',len:15,dec:c.scale,aprox:true}:{type:'Numeric',len:10,dec:0,aprox:!c.prec};}
+  if(t==='FLOAT'||t==='BINARY_DOUBLE'||t==='BINARY_FLOAT')return{type:'Numeric',len:15,dec:4,aprox:true};
+  if(t==='VARCHAR2'||t==='NVARCHAR2'||t==='VARCHAR')return{type:'VarChar',len:c.len||100,dec:0};
+  if(t==='CHAR'||t==='NCHAR')return{type:'Character',len:c.len||1,dec:0};
+  if(t==='DATE')return{type:'Date',len:0,dec:0};
+  if(t.startsWith('TIMESTAMP'))return{type:'DateTime',len:0,dec:0};
+  if(t==='CLOB'||t==='NCLOB'||t==='LONG')return{type:'LongVarChar',len:0,dec:0};
+  if(t==='RAW'&&c.len===16)return{type:'GUID',len:0,dec:0};
+  if(t==='BLOB'||t==='RAW'||t==='LONG RAW')return{type:'Blob',len:0,dec:0};
+  return{type:'VarChar',len:100,dec:0,aprox:true};}
+function oraTipoTxt(c){const t=String(c.type||'');if(/CHAR/.test(t))return `${t}(${c.len})`;if(t==='NUMBER'&&c.prec)return `NUMBER(${c.prec}${c.scale?','+c.scale:''})`;return t;}
+async function buscaPesquisar(){const n=busca.nome.trim();if(n.replace(/[%*]/g,'').length<2){toast('Digite ao menos 2 letras do nome da tabela.');return;}
+  busca.busy='lista';busca.det=null;renderDoc();
+  try{const q=new URLSearchParams({nome:n});if(busca.owner.trim())q.set('owner',busca.owner.trim());
+    const r=await apiCall('/api/tabelas?'+q,{timeout:60000});busca.lista=r.tabelas||[];busca.termo=r.termo;
+    if(r.total>=r.limite)toast(`Mostrando as ${r.limite} primeiras. Refine o nome.`);}
+  catch(e){busca.lista=null;toast('Pesquisa: '+e.message);}
+  busca.busy='';renderDoc();$('#buscaNome')&&$('#buscaNome').focus();}
+async function buscaAbrir(owner,tabela){busca.busy='det';renderDoc();
+  try{busca.det=await apiCall('/api/tabela?'+new URLSearchParams({owner,nome:tabela}),{timeout:60000});busca.novo=sugNomeTrn(tabela);}
+  catch(e){busca.det=null;toast('Tabela: '+e.message);}
+  busca.busy='';renderDoc();const d=$('#buscaDet');if(d)d.scrollIntoView({block:'nearest'});}
+// Nome sugerido para a nova transação: TB_ALUNO_CURSO -> AlunoCurso (sem prefixo TB_).
+function sugNomeTrn(t){const p=String(t).replace(/^(TB|TAB|T)_/i,'').split(/[_$#]+/).filter(Boolean);
+  let n=p.map(x=>x.charAt(0).toUpperCase()+x.slice(1).toLowerCase()).join('');if(!/^[A-Za-z]/.test(n))n='T'+n;
+  let k=n,i=2;while(st.trns.some(x=>x.name.toLowerCase()===k.toLowerCase()))k=n+i++;return k;}
+function buscaCriar(){const D=busca.det;if(!D)return;const nome=String(busca.novo||'').trim();
+  if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(nome)){toast('Nome da transação: letras, números e _, começando por letra.');return;}
+  if(st.trns.some(t=>t.name.toLowerCase()===nome.toLowerCase())){toast('Já existe transação com esse nome.');return;}
+  let ign=0,mant=0;
+  mut(()=>{const items=[];
+    D.colunas.forEach(c=>{const a=c.nome;if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(a)){ign++;return;}
+      if(st.attrs[a])mant++;else{const t=oraTipo(c);st.attrs[a]={type:t.type,len:t.len,dec:t.dec,domain:'',desc:c.comentario||''};}
+      items.push(newItem(a,{key:!!c.pk,req:!c.nullable&&!c.pk}));});
+    const trn={id:uid(),name:nome,desc:D.comentario||`Baseada em ${D.owner}.${D.tabela}`,prefix:'',rules:'',root:{id:uid(),name:nome,desc:'',items,levels:[]}};
+    st.trns.push(trn);st.ui.sel=trn.id;st.ui.view='trn';st.ui.tab='est';st.ui.item=null;});
+  toast(`Transação ${nome} criada com ${D.colunas.length-ign} atributos`+(mant?` · ${mant} já existiam e mantiveram o tipo do projeto`:'')+(ign?` · ${ign} colunas com nome fora do padrão ignoradas`:''));}
+function pBusca(b){const on=api.saude&&api.saude.conectado,L=busca.lista,D=busca.det;
+  let h=`<div class="box"><b>Pesquisar tabelas no Oracle</b>
+    <p class="hint" style="margin:0">Procure uma tabela existente pelo nome e use como base de uma nova transação. Busca em todos os owners que o seu usuário enxerga. Use <code class="mono">%</code> ou <code class="mono">*</code> como coringa.</p>
+    <div class="frow"><label class="f grow">Nome da tabela<input id="buscaNome" class="mono" value="${esc(busca.nome)}" placeholder="ex.: ALUNO" autocomplete="off" spellcheck="false"></label>
+      <label class="f">Owner (opcional)<input id="buscaOwner" class="mono" value="${esc(busca.owner)}" placeholder="todos" autocomplete="off" spellcheck="false"></label>
+      <button class="btn sm primary" data-act="busca" ${on&&!busca.busy?'':'disabled'}>${busca.busy==='lista'?'Pesquisando…':'Pesquisar'}</button></div>
+    ${on?'':'<p class="hint" style="margin:0">Sem conexão com o Oracle.</p>'}
+  </div>`;
+  if(L)h+=`<div class="box"><div class="bar-row"><b>${L.length} tabela(s)</b><span class="hint mono">${esc(busca.termo)}</span></div>
+    ${L.length?`<div class="tbl-wrap" style="max-height:300px;overflow:auto"><table class="tb"><thead><tr><th>Owner</th><th>Tabela</th><th class="num">Linhas</th><th>Comentário</th><th></th></tr></thead><tbody>
+    ${L.map(t=>{const sel=D&&D.owner===t.owner&&D.tabela===t.tabela;return `<tr class="${sel?'sel':''}"><td class="mono">${esc(t.owner)}</td><td class="mono">${esc(t.tabela)}</td><td class="num">${t.linhas==null?'—':Number(t.linhas).toLocaleString('pt-BR')}</td><td class="cmt">${esc(t.comentario||'')}</td>
+      <td><button class="btn sm" data-act="buscaver" data-o="${esc(t.owner)}" data-t="${esc(t.tabela)}" ${busca.busy?'disabled':''}>Ver</button></td></tr>`;}).join('')}
+    </tbody></table></div>`:'<p class="hint" style="margin:0">Nenhuma tabela encontrada com esse nome.</p>'}</div>`;
+  if(busca.busy==='det')h+='<div class="box"><span class="hint">Lendo a estrutura…</span></div>';
+  else if(D){const aprox=D.colunas.filter(c=>oraTipo(c).aprox).length;
+    h+=`<div class="box" id="buscaDet"><div class="bar-row"><b class="mono">${esc(D.owner)}.${esc(D.tabela)}</b><span class="hint">${D.colunas.length} colunas</span></div>
+    ${D.comentario?`<p class="hint" style="margin:0">${esc(D.comentario)}</p>`:''}
+    <div class="tbl-wrap" style="max-height:340px;overflow:auto"><table class="tb"><thead><tr><th>Coluna</th><th>Tipo Oracle</th><th>Na prancheta</th><th>Nulo</th><th>Chave</th><th>Comentário</th></tr></thead><tbody>
+    ${D.colunas.map(c=>{const t=oraTipo(c);return `<tr><td class="mono">${c.pk?'🔑 ':''}${esc(c.nome)}</td><td class="mono">${esc(oraTipoTxt(c))}</td><td class="mono">${esc(typeText(t))}${t.aprox?' <span class="chip c-warn" title="Conversão aproximada: confira o tipo">conferir</span>':''}</td>
+      <td>${c.nullable?'sim':'não'}</td><td>${c.pk?'PK':''}${c.fk?`<span class="hint mono" title="FK na tabela original">→ ${esc(c.fk)}</span>`:''}</td><td class="cmt">${esc(c.comentario||'')}</td></tr>`;}).join('')}
+    </tbody></table></div>
+    <div class="frow"><label class="f grow">Nome da nova transação<input id="buscaNovo" class="mono" value="${esc(busca.novo)}" autocomplete="off" spellcheck="false"></label>
+      <button class="btn sm primary" data-act="buscacriar">Criar transação</button></div>
+    <p class="hint" style="margin:0">Copia colunas, tipos, PK, obrigatoriedade e comentários (viram a descrição). As FKs da tabela original não são copiadas: a prancheta deduz as relações pelos nomes dos atributos.${aprox?` ${aprox} tipo(s) marcados com “conferir” foram convertidos de forma aproximada.`:''}</p></div>`;}
+  b.innerHTML=h;}
+function pDom(b){
+  const uses=d=>Object.values(st.attrs).filter(a=>a.domain===d).length;
+  b.innerHTML=`<p class="hint">Domínio = tipo reutilizável, escolhido no campo Tipo ou em Propriedades. Valores enumerados viram CHECK IN no Oracle, <code class="mono">enum</code> no JSON Schema e combo no formulário. Formato: <code class="mono">A=Ativo,I=Inativo</code>.</p>
+  <div class="tbl-wrap"><table class="tb"><thead><tr><th>Nome</th><th>Tipo</th><th>Tam.</th><th>Dec.</th><th>Valores</th><th>Uso</th><th></th></tr></thead><tbody>
+  ${st.domains.map(d=>`<tr><td><input id="dn-${d.id}" class="mono" data-dom="name" data-id="${d.id}" value="${esc(d.name)}" aria-label="Nome do domínio"></td>
+    <td><select id="dt-${d.id}" data-dom="type" data-id="${d.id}" aria-label="Tipo">${TYPES.map(t=>`<option ${t===d.type?'selected':''}>${t}</option>`).join('')}</select></td>
+    <td><input id="dl-${d.id}" type="number" style="width:60px" data-dom="len" data-id="${d.id}" value="${d.len}" aria-label="Tamanho"></td>
+    <td><input id="dd-${d.id}" type="number" style="width:50px" data-dom="dec" data-id="${d.id}" value="${d.dec}" aria-label="Decimais"></td>
+    <td><input id="dv-${d.id}" class="mono" data-dom="values" data-id="${d.id}" value="${esc(d.values||'')}" placeholder="—" aria-label="Valores"></td>
+    <td>${uses(d.name)}</td><td><button class="btn sm ghost" data-act="deldom" data-id="${d.id}" ${uses(d.name)?'disabled title="Em uso"':''}>×</button></td></tr>`).join('')}
+  </tbody></table></div><div><button class="btn sm" data-act="adddom">+ domínio</button></div>`;
+}
+function pJSON(b){
+  b.innerHTML=`<p class="hint">O projeto fica salvo neste navegador. Para levar a outra máquina ou versionar no Git, copie o JSON; para trazer, cole e carregue (ou escolha um arquivo .json).</p>
+  <div class="bar-row"><span class="fname">projeto.json</span><button class="btn sm primary" data-copy="json">Copiar JSON</button></div>
+  <textarea id="jsonTxt" class="big" spellcheck="false">${esc(JSON.stringify({...st,ui:undefined},null,2))}</textarea>
+  <div class="bar-row"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn sm" data-act="jsonload">Carregar do texto</button><input type="file" id="jsonFile" accept=".json,application/json" aria-label="Arquivo JSON"></div></div>`;
+}
+function pLev(b){
+  const R=(a,p)=>`<tr><td>${a}</td><td>${p}</td></tr>`;
+  b.innerHTML=`<div class="prose"><h3>Como a Prancheta Database funciona</h3>
+  <p>Você descreve a estrutura pelos nomes dos atributos; a prancheta deduz tabelas, chaves, relacionamentos, validações, script Oracle, API e formulário.</p></div>
+  <div class="tbl-wrap"><table class="tb lev"><thead><tr><th>Recurso</th><th>O que faz</th></tr></thead><tbody>
+  ${R('Dicionário','O atributo é global: o mesmo nome tem o mesmo tipo, domínio e descrição em todas as transações. Tipo, domínio e descrição são sugeridos pelo sufixo do nome, por atributo existente ou pelo catálogo Oracle.')}
+  ${R('Chave primária','Atributos marcados com a chave no nível 1 formam a PK. Avisa tabela sem chave e sugere autonumerar chave numérica simples.')}
+  ${R('Níveis','Cada nível vira uma tabela; o subnível herda a chave do pai (PK composta). Duas transações com a mesma chave geram aviso.')}
+  ${R('Chaves estrangeiras','Deduzidas pelo nome: se a tabela contém a chave inteira de outra, há relação N:1. Escolhe a relação mais direta.')}
+  ${R('Atributos inferidos','Atributos de tabelas relacionadas aparecem em itálico, sem serem gravados, e viram a VIEW <code>V_&lt;TABELA&gt;</code> com os JOINs prontos.')}
+  ${R('Subtipos','Detecta pelo nome (<code>DisCodPreReq</code> começa com <code>DisCod</code>) e liga com um clique.')}
+  ${R('Domínios','Tipo reutilizável. Enumerados viram CHECK IN no Oracle, enum na API e combo no formulário.')}
+  ${R('Fórmulas','Expressões, agregações sobre o subnível (sum, count, max, min, average) e condicionais. Não são gravadas: viram SQL na view e JS no formulário.')}
+  ${R('Regras','error, msg, default, noaccept, required, unique, serial, add, subtract com condição <code>if</code> e momento (<code>on BeforeInsert</code>…). Cada regra vai para o banco quando possível (CHECK, DEFAULT, NOT NULL, UNIQUE, TRIGGER) e para o contrato da tela; a aba Regras mostra o destino de cada linha.')}
+  ${R('Integridade referencial','FK declarada, índice quando a PK não cobre, cascata opcional nos subníveis.')}
+  ${R('Concorrência','Coluna de versão opcional (concorrência otimista) com trigger e 409 no contrato da API.')}
+  ${R('Banco existente','Com o catálogo lido do Oracle, tabela existente vira ALTER TABLE ADD e diferenças de tipo são apontadas. Sai como script, Flyway (V/U) ou Liquibase.')}
+  ${R('Conferência e execução','“Conferir no banco” compara cada comando com o dicionário sem executar. A execução só é liberada em desenv, com confirmação digitada.')}
+  ${R('Formulário','JSON Schema + regras em JSON, com prévia validando ao digitar.')}
+  ${R('API','OpenAPI 3 e DTO C# com <code>Validar()</code> das regras error().')}
+  </tbody></table></div>
+  <div class="prose"><h3>Também</h3><ul>
+  <li>Validação de nomes contra palavras reservadas e limite de identificador do Oracle (30 ou 128).</li>
+  <li><code>COMMENT ON</code> a partir das descrições, colunas de auditoria e coluna de versão opcionais.</li>
+  <li>Script de rollback sempre junto (DOWN, Undo do Flyway ou <code>--rollback</code> do Liquibase).</li>
+  <li>Alerta de CPF: tabela nova com 11 dígitos; tabela legada pode ter CPF sem zeros à esquerda.</li></ul>
+  <h3>Limites</h3><ul>
+  <li>A sugestão de FK por catálogo usa regras de nome (coluna-chave igual, nome da tabela, prefixo), sem modelo de IA.</li>
+  <li>O diff cobre colunas novas e tipo divergente; não remove colunas, não converte dados e não compara constraints existentes além de FK.</li>
+  <li>Dados iniciais de carga e código procedural (eventos) ficam fora: são do backend.</li></ul></div>`;
+}
+/* ───────── formulário (JSON Schema + regras rodando no cliente) ───────── */
+function pForm(b){
+  const trn=selTrn();if(!trn){b.innerHTML='';return;}const T=rootOf(trn);if(!T){b.innerHTML='';return;}
+  if(pv.trn!==trn.id){pv={trn:trn.id,vals:{},lines:{}};initDefaults(T);}
+  const v=st.ui.formView;
+  const schema=JSON.stringify({$schema:'https://json-schema.org/draft/2020-12/schema',...schemaFor(T),'x-regras':rulesJSON(trn)},null,2);pForm.last=schema;
+  b.innerHTML=`<div class="bar-row"><div class="seg"><button data-formview="preview" class="${v==='preview'?'on':''}">Prévia</button><button data-formview="schema" class="${v==='schema'?'on':''}">JSON Schema + regras</button></div>${v==='schema'?'<button class="btn sm primary" data-copy="form">Copiar</button>':'<button class="btn sm" data-act="pvreset">Limpar prévia</button>'}</div>
+  ${v==='schema'?codeBlock('form-pre',schema,'json'):`<p class="hint">Formulário interpretado do contrato. Defaults aplicados, <code class="mono">noaccept</code> e fórmulas somente leitura, <code class="mono">error()</code> avaliado a cada tecla. Inferidos aparecem como campo de consulta (viriam pela FK).</p><div class="form-prev" id="fprev">${formHTML(T)}</div>`}`;
+  if(v==='preview')evalForm(T);
+}
+function initDefaults(T){const rules=model.rules[T.trn.id]||[];rules.filter(r=>r.kind==='default').forEach(r=>{let x=r.val;if(/^(Today\(\)|&Today|Now\(\)|&Now)$/i.test(x))x=new Date().toISOString().slice(0,10);else x=x.replace(/^["']|["']$/g,'');
+  if(T.items.some(i=>i.attr===r.attr))pv.vals[r.attr]=x;});}
+function fieldHTML(T,i,val,name){
+  const t=eff(st.attrs[i.attr]),p=jsonProp(T,i.attr,i),lbl=esc((st.attrs[i.attr]&&st.attrs[i.attr].desc)||i.attr);
+  if(p.readOnly&&(i.formula||T.inferred[i.attr]))return `<label>${lbl}<span class="ro" data-out="${name}">${T.inferred[i.attr]?'via '+esc(T.inferred[i.attr].name):''}</span></label>`;
+  const ro=p.readOnly?'readonly':'';const ev=enumVals(t);
+  if(ev.length)return `<label>${lbl}<select data-pv="${name}" ${ro?'disabled':''}><option value=""></option>${ev.map(x=>`<option value="${esc(x.v)}" ${x.v===val?'selected':''}>${esc(x.l)}</option>`).join('')}</select></label>`;
+  const type=t.type==='Numeric'?'number':t.type==='Date'?'date':t.type==='DateTime'?'datetime-local':t.type==='Boolean'?'checkbox':'text';
+  return `<label>${lbl}<input type="${type}" data-pv="${name}" value="${esc(val??'')}" ${type==='checkbox'&&val?'checked':''} ${p.maxLength?`maxlength="${p.maxLength}"`:''} ${t.dec?`step="${1/10**t.dec}"`:''} ${ro} placeholder="${i.key&&i.auto?'automático':''}"></label>`;}
+function formHTML(T){
+  let h=`<div class="fp-grid">${T.items.map(i=>fieldHTML(T,i,pv.vals[i.attr],i.attr)).join('')}</div>`;
+  T.children.forEach(C=>{const L=pv.lines[C.lv.id]??=[];
+    h+=`<div class="fp-lines"><div class="bar-row"><b style="font-family:var(--f-display)">${esc(C.desc||C.name)}</b><button class="btn sm" data-act="pvline" data-lv="${C.lv.id}">+ linha</button></div>
+    <div class="tbl-wrap"><table><thead><tr>${C.items.map(i=>`<th>${esc(i.attr)}</th>`).join('')}<th></th></tr></thead><tbody>
+    ${L.map((ln,k)=>`<tr>${C.items.map(i=>{const f=fieldHTML(C,i,ln[i.attr],`${C.lv.id}|${k}|${i.attr}`);return `<td>${f.replace(/^<label>.*?(<(input|select|span))/s,'$1').replace(/<\/label>$/,'')}</td>`;}).join('')}<td><button class="btn sm ghost" data-act="pvdel" data-lv="${C.lv.id}" data-k="${k}" aria-label="Remover linha">×</button></td></tr>`).join('')||`<tr><td colspan="${C.items.length+1}" class="hint">Sem linhas.</td></tr>`}
+    </tbody></table></div></div>`;});
+  return h+`<ul class="fp-msgs" id="fpmsgs"></ul>`;}
+function conv(a,raw){const t=eff(st.attrs[a]);if(raw===''||raw==null)return null;if(t.type==='Numeric')return Number(raw);if(t.type==='Date'){const d=new Date(raw+'T00:00:00');return isNaN(d)?null:d;}if(t.type==='DateTime')return new Date(raw);if(t.type==='Boolean')return !!raw;return String(raw);}
+function evalForm(T){
+  const box=$('#fprev');if(!box)return;const msgs=[];const trn=T.trn;
+  const isEmpty=x=>x==null||x===''||x===0||(x instanceof Date&&isNaN(x));const today=()=>{const d=new Date();d.setHours(0,0,0,0);return d;};
+  const rootV={};T.items.forEach(i=>rootV[i.attr]=conv(i.attr,pv.vals[i.attr]));
+  const linesOf=C=>(pv.lines[C.lv.id]||[]).map(ln=>{const o={};C.items.forEach(i=>o[i.attr]=conv(i.attr,ln[i.attr]));return o;});
+  const run=(js,v,agg)=>{try{return Function('v','isEmpty','today','agg',`return (${js});`)(v,isEmpty,today,agg);}catch(e){return undefined;}};
+  const aggFor=Tt=>(fn,a)=>{const C=Tt.children.find(c=>c.set.has(a));if(!C)return null;const xs=linesOf(C).map(l=>fn==='count'?(isEmpty(l[a])?null:1):l[a]).filter(x=>x!=null);
+    if(fn==='count')return xs.length;if(!xs.length)return fn==='sum'?0:null;if(fn==='sum')return xs.reduce((s,x)=>s+Number(x),0);if(fn==='max')return Math.max(...xs);if(fn==='min')return Math.min(...xs);return xs.reduce((s,x)=>s+Number(x),0)/xs.length;};
+  const fmt=x=>x==null||Number.isNaN(x)?'—':x instanceof Date?x.toLocaleDateString('pt-BR'):typeof x==='number'?x.toLocaleString('pt-BR'):String(x);
+  T.items.filter(i=>i.formula).forEach(i=>{const c=compileFormula(model,T,i.formula,'js',a=>`v.${a}`);const r=c.unknown.length?undefined:run(c.out,rootV,aggFor(T));rootV[i.attr]=r;const o=box.querySelector(`[data-out="${i.attr}"]`);if(o)o.textContent=fmt(r);});
+  const req=(Tt,v,where)=>Tt.items.forEach(i=>{if(((i.key&&!i.auto)||i.req||Tt.rx.notnull.has(i.attr))&&isEmpty(v[i.attr])&&!Tt.inferred[i.attr])msgs.push(`${where}${(st.attrs[i.attr]&&st.attrs[i.attr].desc)||i.attr}: obrigatório.`);});
+  req(T,rootV,'');
+  T.children.forEach(C=>linesOf(C).forEach((l,k)=>{req(C,l,`Linha ${k+1} · `);(pv.lines[C.lv.id][k]._v=l);}));
+  (model.rules[trn.id]||[]).filter(r=>r.kind==='error'&&r.cond&&r.table&&!(r.ev&&r.ev.every(e=>/Delete/i.test(e)))).forEach(r=>{
+    const js=tx(r.cond,'js',a=>`v.${a}`).out;
+    if(r.table===T){if(run(js,rootV,aggFor(T))===true)msgs.push(r.msg);}
+    else if(r.table.parent===T)linesOf(r.table).forEach((l,k)=>{if(run(js,{...rootV,...l},aggFor(r.table))===true)msgs.push(`Linha ${k+1} · ${r.msg}`);});});
+  (model.rules[trn.id]||[]).filter(r=>r.kind==='msg'&&r.cond&&r.table===T).forEach(r=>{if(run(tx(r.cond,'js',a=>`v.${a}`).out,rootV)===true)msgs.push('Aviso: '+r.msg);});
+  $('#fpmsgs').innerHTML=msgs.length?msgs.map(m=>`<li>${esc(m)}</li>`).join(''):'<li class="ok">Sem violações: a gravação seria aceita.</li>';
+}
+/* ───────── eventos ───────── */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,tr[data-row]');if(!t)return;const d=t.dataset;
+  if(t.tagName==='TR'){if(st.ui.item!==d.row){st.ui.item=d.row;save();markSel();renderProps();}return;}
+  if(d.sel){st.ui.sel=d.sel;st.ui.view='trn';st.ui.item=null;save();render();return;}
+  if(d.tool){st.ui.view=d.tool;save();render();return;}
+  if(d.tab){st.ui.tab=d.tab;save();renderDoc();renderProps();return;}
+  if(d.intel!=null){const fn=ACTS[+d.intel];if(fn)mut(()=>{fn();prune();});toast('Sugestão aplicada');return;}
+  if(d.ddlview){st.ui.ddlView=d.ddlview;save();renderDoc();return;}
+  if(d.ddlscope){st.ui.ddlScope=d.ddlscope;save();renderDoc();return;}
+  if(d.apiview){st.ui.apiView=d.apiview;save();renderDoc();return;}
+  if(d.formview){st.ui.formView=d.formview;save();renderDoc();return;}
+  if(d.copy){const txt={ddl:pDDL.last,api:pAPI.last,form:pForm.last,catsql:CAT_SQL,json:$('#jsonTxt')&&$('#jsonTxt').value}[d.copy]||'';
+    const preId={ddl:'ddl-pre',api:'api-pre',form:'form-pre',catsql:'cat-sql',json:'jsonTxt'}[d.copy];
+    try{navigator.clipboard.writeText(txt).then(()=>toast('Copiado'),()=>selectFallback(preId));}catch(err){selectFallback(preId);}return;}
+  const act=d.act;if(!act)return;
+  const trn=selTrn();
+  switch(act){
+    case 'key':mut(()=>{const x=findItem(d.id);x.it.key=!x.it.key;if(!x.it.key)x.it.auto=false;st.ui.item=d.id;});break;
+    case 'del':mut(()=>{const x=findItem(d.id);x.lv.items=x.lv.items.filter(i=>i.id!==d.id);st.ui.item=null;prune();});break;
+    case 'remove':{const id=st.ui.item;if(!id)return;
+      if(findItem(id)){mut(()=>{const x=findItem(id);x.lv.items=x.lv.items.filter(i=>i.id!==id);st.ui.item=null;prune();});}
+      else{const l=findLevel(id);if(!l||!l.depth)return;mut(()=>{l.parent.levels=l.parent.levels.filter(v=>v!==l.lv);st.ui.item=null;prune();});toast('Nível removido — Desfazer recupera');}
+      break;}
+    case 'sub':mut(()=>{const x=targetLevel(trn);const base=x.depth===0?trn.name:x.lv.name;let nm=base+'Linha',k=2;while(model.tables.some(T=>T.name===nm))nm=base+'Linha'+k++;
+      const pf=prefixOf(nm);const lv={id:uid(),name:nm,desc:'',items:[],levels:[]};x.lv.levels.push(lv);ensureAttr(pf+'Seq');lv.items.push(newItem(pf+'Seq',{key:true}));st.ui.item=lv.id;});toast('Subnível criado — renomeie em Propriedades');break;
+    case 'dellv':mut(()=>{const x=findLevel(d.lv);x.parent.levels=x.parent.levels.filter(l=>l!==x.lv);st.ui.item=null;prune();});toast('Nível removido — Desfazer recupera');break;
+    case 'deltrn':mut(()=>{st.trns=st.trns.filter(x=>x!==trn);st.ui.sel=st.trns[0]?st.trns[0].id:null;st.ui.item=null;prune();});toast('Transação excluída — Desfazer recupera');break;
+    case 'quicktoggle':pEst.quick=!pEst.quick;renderDoc();if(pEst.quick)$('#quickTxt').focus();break;
+    case 'quick':{const names=($('#quickTxt').value||'').split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean);if(!names.length)return;const x=targetLevel(trn);
+      mut(()=>{names.forEach(n=>{if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(n))return;if(x.lv.items.some(i=>i.attr===n))return;model=analyze();addItem(x.lv,n);});pEst.quick=false;});toast(`${names.length} atributo(s) adicionados`);break;}
+    case 'outtoggle':st.ui.outOpen=!st.ui.outOpen;save();renderOut();break;
+    case 'adddom':mut(()=>st.domains.push({id:uid(),name:'NovoDominio',type:'VarChar',len:50,dec:0,values:''}));break;
+    case 'deldom':mut(()=>st.domains=st.domains.filter(x=>x.id!==d.id));break;
+    case 'catload':{const r=parseCatalog($('#catPaste').value||'');if(!r.n){toast('Nada reconhecido. Cole o grid com cabeçalho ou linhas separadas por TAB ou ;');return;}
+      mut(()=>{st.cat={tables:r.tables,loadedAt:new Date().toLocaleString('pt-BR')+' · colado'};});toast(`${Object.keys(r.tables).length} tabelas, ${r.n} colunas`);break;}
+    case 'catdemo':mut(()=>{st.cat={tables:parseCatalog(DEMO_CAT).tables,loadedAt:'exemplo'};});toast('Catálogo de exemplo carregado');break;
+    case 'catclear':mut(()=>{st.cat={tables:{},loadedAt:''};});break;
+    case 'jsonload':try{const o=JSON.parse($('#jsonTxt').value);importProject(o);}catch(err){toast('JSON inválido: '+err.message);}break;
+    case 'pvreset':pv={trn:null,vals:{},lines:{}};renderDoc();break;
+    case 'pvline':(pv.lines[d.lv]??=[]).push({});renderDoc();break;
+    case 'pvdel':pv.lines[d.lv].splice(+d.k,1);renderDoc();break;
+    case 'apitest':apiTest(false);break;
+    case 'logout':logout();break;
+    case 'apicat':apiCatalog();break;
+    case 'apiconf':apiConfer();break;
+    case 'apiexec':apiExec();break;
+    case 'busca':buscaPesquisar();break;
+    case 'buscaver':buscaAbrir(d.o,d.t);break;
+    case 'buscacriar':buscaCriar();break;
+  }
+});
+// Foco numa célula seleciona a linha (Propriedades acompanha).
+document.addEventListener('focusin',e=>{const tr=e.target.closest&&e.target.closest('tr[data-row]');if(tr&&st.ui.item!==tr.dataset.row){st.ui.item=tr.dataset.row;save();markSel();renderProps();}});
+document.addEventListener('toggle',e=>{if(e.target.id==='optsBox'){st.ui.optsOpen=e.target.open;save();}},true);
+function selectFallback(id){const el=document.getElementById(id);if(!el)return;if(el.select){el.select();}else{const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);}toast('Texto selecionado — use Ctrl+C');}
+function importProject(o){if(!o||!Array.isArray(o.trns)||typeof o.attrs!=='object'){toast('Arquivo não parece um projeto da prancheta.');return;}
+  mut(()=>{const d=defaults();const ui=st.ui;st={...d,...o,opts:{...d.opts,...o.opts},cat:o.cat||d.cat,ui:{...ui,sel:o.trns[0]&&o.trns[0].id,item:null,view:'trn'}};});toast('Projeto carregado');}
+document.addEventListener('change',e=>{
+  const el=e.target,d=el.dataset;
+  if(el.id==='jsonFile'){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{importProject(JSON.parse(r.result));}catch(err){toast('JSON inválido: '+err.message);}};r.readAsText(f);return;}
+  if(el.id==='outAll'){st.ui.outAll=el.checked;save();renderOut();return;}
+  if(d.pv!=null||el.id==='execConf'||el.id==='apiUrl'||el.id==='catOwner'||el.id==='catFiltro'||el.id==='buscaNome'||el.id==='buscaOwner'||el.id==='buscaNovo'||el.id==='quickTxt'||el.id==='catPaste')return;
+  const val=el.type==='checkbox'?el.checked:el.value;
+  if(d.newattr){const n=String(val).trim();if(!n)return;if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(n)){toast('Nome de atributo: letras, números e _');return;}
+    const x=findLevel(d.newattr);if(!x)return;if(x.lv.items.some(i=>i.attr===n)){toast(`${n} já está neste nível`);el.value='';return;}
+    mut(()=>{model=analyze();const known=!!st.attrs[n];const it=addItem(x.lv,n);st.ui.item=it.id;const a=st.attrs[n];toast(known?`${n}: atributo já existe no projeto`:`${n}: ${typeText(a)}${a&&a.desc?' · '+a.desc:''}`);});return;}
+  if(d.f){const x=findItem(d.id);if(!x)return;const it=x.it;
+    if(d.f==='typetxt'){const p=parseType(val);if(!p){toast('Tipo não reconhecido. Ex.: Numeric(8), Numeric(15.2), VarChar(100), Date ou um domínio');render();return;}
+      mut(()=>{const a=st.attrs[it.attr];if(!a)return;if(p.domain){a.domain=p.domain;fillAttr(a);}else Object.assign(a,p);});return;}
+    mut(()=>{
+      if(d.f==='attr'){const n=String(val).trim();if(n&&!/^[A-Za-z][A-Za-z0-9_]*$/.test(n)){toast('Nome de atributo: letras, números e _');return;}
+        if(n&&x.lv.items.some(i=>i!==it&&i.attr===n)){toast(`${n} já está neste nível`);return;}
+        const s=ensureAttr(n);it.attr=n;if(s&&s.ref)it.ref=s.ref;if(s)toast(`${n}: ${s.why}`);
+        if(n&&!x.lv.items.some(i=>i.key)&&x.lv.items.filter(i=>i.attr).length===1&&/(Cod|Id|Seq)$/.test(n))it.key=true;prune();}
+      else if(d.f==='nullable'){it.req=!val;}
+      else if(['key','req','auto','formula','ref'].includes(d.f)){if(d.f==='ref'&&String(val).includes('.')){it.ext=val;it.ref='';}else{it[d.f]=val;if(d.f==='ref')it.ext='';}
+        if(d.f==='key'&&!val)it.auto=false;
+        if(d.f==='ref'&&val&&st.attrs[val]){const s=st.attrs[val];Object.assign(st.attrs[it.attr],{domain:s.domain,type:s.type,len:s.len,dec:s.dec});}}
+      else{const a=st.attrs[it.attr];if(!a)return;
+        if(d.f==='domain'){a.domain=val;fillAttr(a);}else if(d.f==='type'){a.type=val;a.domain='';if(!HASLEN(val)){a.len=0;a.dec=0;}else if(!a.len)a.len=val==='Numeric'?10:100;}
+        else if(d.f==='len'||d.f==='dec')a[d.f]=Math.max(0,parseInt(val)||0);else a[d.f]=val;}
+    });return;}
+  if(d.lf){const x=findLevel(d.lv);mut(()=>{if(d.lf==='name'){const n=String(val).trim();if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(n)){toast('Nome de nível inválido');return;}x.lv.name=n;}else x.lv[d.lf]=val;});return;}
+  if(d.tf){const trn=selTrn();mut(()=>{if(d.tf==='name'){const n=String(val).trim();if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(n)){toast('Nome de transação inválido');return;}trn.name=n;trn.root.name=n;}else trn[d.tf]=val;});return;}
+  if(d.opt){mut(()=>{st.opts[d.opt]=val;});return;}
+  if(d.dom){const dm=st.domains.find(x=>x.id===d.id);mut(()=>{if(d.dom==='name'){const old=dm.name;dm.name=String(val).trim()||old;Object.values(st.attrs).forEach(a=>{if(a.domain===old)a.domain=dm.name;});}
+    else dm[d.dom]=['len','dec'].includes(d.dom)?Math.max(0,parseInt(val)||0):val;Object.values(st.attrs).forEach(a=>{if(a.domain===dm.name)fillAttr(a);});});return;}
+});
+document.addEventListener('input',e=>{
+  const el=e.target,d=el.dataset;
+  if(el.id==='apiUrl'){api.url=el.value.trim();try{localStorage.setItem(API_KEY,api.url);}catch(err){}return;}
+  if(el.id==='catOwner'){api.owner=el.value.trim();return;}
+  if(el.id==='catFiltro'){api.filtro=el.value.trim();return;}
+  if(el.id==='buscaNome'){busca.nome=el.value;return;}
+  if(el.id==='buscaOwner'){busca.owner=el.value;return;}
+  if(el.id==='buscaNovo'){busca.novo=el.value;return;}
+  if(d.pv!=null){const v=el.type==='checkbox'?el.checked:el.value;const p=d.pv.split('|');if(p.length===3){pv.lines[p[0]][+p[1]][p[2]]=v;}else pv.vals[d.pv]=v;const T=rootOf(selTrn());if(T)evalForm(T);}
+});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();undo();}
+  if(e.key==='Enter'&&e.target.id==='newTrn'){e.preventDefault();$('#btnNewTrn').click();}
+  if(e.key==='Enter'&&e.target.id==='execConf'){e.preventDefault();apiExec();}
+  if(e.key==='Enter'&&(e.target.id==='buscaNome'||e.target.id==='buscaOwner')){e.preventDefault();buscaPesquisar();}
+  if(e.key==='Enter'&&e.target.id==='buscaNovo'){e.preventDefault();buscaCriar();}
+});
+$('#btnNewTrn').addEventListener('click',()=>{const n=$('#newTrn').value;mut(()=>{if(createTrn(n)){$('#newTrn').value='';st.ui.view='trn';st.ui.tab='est';st.ui.item=null;}});});
+$('#btnUndo').addEventListener('click',undo);
+$('#btnSample').addEventListener('click',()=>{mut(()=>{const ui=st.ui;st=sample();st.ui={...st.ui,tab:'est',view:'trn',outOpen:ui.outOpen,outAll:ui.outAll};});toast('Exemplo carregado — Desfazer volta ao anterior');});
+$('#btnClear').addEventListener('click',()=>{mut(()=>{const ui=st.ui,dm=st.domains;st=defaults();st.domains=dm;st.ui.outOpen=ui.outOpen;});toast('Prancheta limpa — Desfazer recupera');});
+
+
+/* tela de entrada: a prancheta só abre conectada ao Oracle */
+const LOGIN_KEY='prancheta-login';
+function loginPrefs(){try{return JSON.parse(localStorage.getItem(LOGIN_KEY)||'{}');}catch(e){return{};}}
+function setLoginMsg(msg,bad){const m=$('#loginMsg');m.innerHTML=msg||'';m.className='lmsg'+(bad?' bad':'');m.hidden=!msg;}
+function apiDownMsg(){if(API_MESMA_ORIGEM)return 'A Prancheta Database foi encerrada (a janela do <code>PranchetaDatabase.exe</code> foi fechada). Abra o programa de novo.';return `A API local não respondeu em <code>${esc(api.url)}</code>. Abra o PowerShell na pasta <code>prancheta-api</code>, rode <code>dotnet run</code> e clique em Conectar.`;}
+function showLogin(msg,bad){
+  const f=$('#loginForm');
+  if(!f.dataset.init){const p=loginPrefs();f.servidor.value=p.servidor||'';f.usuario.value=p.usuario||'';$('#loginApi').value=api.url;if(API_MESMA_ORIGEM)$('#loginApi').closest('details').hidden=true;f.dataset.init='1';}
+  document.body.classList.add('locked');setLoginMsg(msg,bad);
+  setTimeout(()=>{(!f.servidor.value?f.servidor:!f.usuario.value?f.usuario:f.senha).focus();},0);}
+function enterApp(){document.body.classList.remove('locked');render();}
+async function boot(){
+  try{api.saude=await apiCall('/api/saude',{timeout:5000});api.erro='';}catch(e){api.saude=null;api.erro=e.message;}
+  if(api.saude&&api.saude.conectado){enterApp();return;}
+  showLogin(api.saude?'':apiDownMsg(),!api.saude);}
+async function logout(){try{await apiCall('/api/desconectar',{body:{}});}catch(e){}
+  api.saude=null;api.erro='';api.analise=null;api.exec=null;renderApiPill();showLogin('Desconectado.',false);}
+$('#loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();const f=e.target;
+  const u=$('#loginApi').value.trim();if(u&&u!==api.url){api.url=u;try{localStorage.setItem(API_KEY,u);}catch(_){}}
+  const body={servidor:f.servidor.value.trim(),usuario:f.usuario.value.trim(),senha:f.senha.value};
+  if(!body.servidor||!body.usuario||!body.senha){setLoginMsg('Informe servidor, usuário e senha.',true);return;}
+  const btn=$('#loginBtn');btn.disabled=true;btn.textContent='Conectando…';setLoginMsg('');
+  try{await apiCall('/api/conectar',{body,timeout:30000});
+    try{localStorage.setItem(LOGIN_KEY,JSON.stringify({servidor:body.servidor,usuario:body.usuario}));}catch(_){}
+    api.saude=await apiCall('/api/saude',{timeout:10000});
+    if(api.saude.conectado){api.erro='';enterApp();toast(`Conectado como ${api.saude.usuario}`);}else setLoginMsg(esc(api.saude.erro||'Sem conexão'),true);}
+  catch(err){setLoginMsg(/não encontrada/.test(err.message)?apiDownMsg():esc(err.message),true);}
+  finally{f.senha.value='';btn.disabled=false;btn.textContent='Conectar';}
+});
+$('#btnLogout').addEventListener('click',logout);
+
+// Tema: Claro, Escuro ou Automático (segue o sistema). A escolha fica salva neste navegador.
+function applyTheme(t){if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
+  document.querySelectorAll('[data-theme-set]').forEach(b=>b.classList.toggle('on',b.dataset.themeSet===(t||'auto')));
+  try{localStorage.setItem('prancheta-tema',t||'auto');}catch(e){}}
+document.getElementById('themeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-theme-set]');if(b)applyTheme(b.dataset.themeSet);});
+let tema='light';try{tema=localStorage.getItem('prancheta-tema')||'light';}catch(e){}
+applyTheme(tema);
+
+st=load();if(!OBJ_TABS.some(x=>x[0]===st.ui.tab))st.ui.tab='est';if(!st.ui.view)st.ui.view='trn';
+render();boot();
+</script>

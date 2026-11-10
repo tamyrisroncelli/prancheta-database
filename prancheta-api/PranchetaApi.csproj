@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PranchetaDatabase</AssemblyName>
+    <RootNamespace>PranchetaApi</RootNamespace>
+    <Product>Prancheta Database</Product>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <!-- A tela vai embutida no executável: um único arquivo para distribuir. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\prancheta.html" LogicalName="prancheta.html" />
+  </ItemGroup>
+
+  <!-- Publicação: dotnet publish -c Release (ou publicar.ps1) gera um .exe único com o runtime dentro. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.89" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
+  </ItemGroup>
+
+</Project>
