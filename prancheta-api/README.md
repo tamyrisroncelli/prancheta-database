@@ -19,7 +19,7 @@ dotnet run -- --desenv   # sem --desenv a API só lê (catálogo e conferência)
 A API serve a própria tela em `http://127.0.0.1:5080/` (o `prancheta.html` vai embutido no
 assembly) e abre o navegador nesse endereço. A página também funciona aberta direto do disco.
 
-Opções de linha de comando (valem igual para o `PranchetaDatabase.exe` gerado por `publicar.ps1`):
+Opções de linha de comando (valem igual para o `Abrir Prancheta.cmd` do pacote gerado por `publicar.ps1`):
 
 | Opção | Variável de ambiente | Efeito |
 |---|---|---|

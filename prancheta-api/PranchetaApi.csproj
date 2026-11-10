@@ -15,13 +15,12 @@
     <EmbeddedResource Include="..\prancheta.html" LogicalName="prancheta.html" />
   </ItemGroup>
 
-  <!-- Publicação: dotnet publish -c Release (ou publicar.ps1) gera um .exe único com o runtime dentro. -->
+  <!-- Sem .exe próprio: roda pelo dotnet.exe instalado (assinado pela Microsoft). Máquinas com política
+       que bloqueia executável não assinado em pasta de usuário rodam a dll normalmente. -->
+  <PropertyGroup>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>none</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>

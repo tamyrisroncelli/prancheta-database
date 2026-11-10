@@ -33,22 +33,25 @@ São duas peças:
 - **Saídas extras**: OpenAPI, DTO C# com validação e formulário (JSON Schema) com prévia.
 - Tema claro, escuro ou automático.
 
-## Como usar (executável, sem instalar nada)
+## Como usar (pacote pronto)
 
-1. Baixe `PranchetaDatabase.exe` na página **Releases** do repositório (Windows 10/11, 64 bits).
-2. Dê duplo clique. Abre uma janela de console (é a API) e o navegador na tela de conexão.
+Requisito: **ASP.NET Core Runtime 10** instalado
+([download](https://dotnet.microsoft.com/download/dotnet/10.0)). Para conferir:
+`dotnet --list-runtimes` deve listar `Microsoft.AspNetCore.App 10.x`.
+
+1. Baixe `PranchetaDatabase.zip` na página **Releases** do repositório e extraia.
+2. Dê duplo clique em **`Abrir Prancheta.cmd`**. Abre uma janela de console (é a API) e o
+   navegador na tela de conexão.
 3. Preencha servidor (`host:1521/servico`), usuário e senha.
 4. Para encerrar, feche a janela de console.
 
-O `.exe` já traz o runtime do .NET e a tela embutida; não precisa do SDK.
+O pacote não tem `.exe` próprio de propósito: ele roda pelo `dotnet.exe` instalado, assinado pela
+Microsoft, e por isso funciona em máquinas cuja política bloqueia executáveis não assinados.
 
-- Para liberar o botão **Executar** (só em banco de desenvolvimento), abra pelo PowerShell:
-  `.\PranchetaDatabase.exe --desenv`
+- Para liberar o botão **Executar** (só em banco de desenvolvimento), abra pelo prompt:
+  `"Abrir Prancheta.cmd" --desenv`
 - Outras opções: `--porta=5090` (outra porta) e `--sem-navegador` (não abre o navegador).
-- Abrir o `.exe` de novo com ele já aberto só reabre o navegador na mesma tela.
-- O executável não é assinado: o Windows SmartScreen pode avisar na primeira vez
-  ("Mais informações" → "Executar assim mesmo"). Em máquina com política corporativa, o
-  antivírus ou a política pode bloquear executáveis fora de pastas permitidas.
+- Abrir de novo com ele já aberto só reabre o navegador na mesma tela.
 - Os projetos ficam no `localStorage` do endereço `http://127.0.0.1:5080`, separado do da página
   aberta como arquivo. Para levar projetos de um modo para o outro, use **Projeto (JSON)**.
 
@@ -64,14 +67,14 @@ dotnet run -- --desenv   # sem --desenv a API só lê (catálogo e conferência)
 Depois abra `http://127.0.0.1:5080/` (ou `prancheta.html` direto do disco) e preencha servidor
 (`host:1521/servico`), usuário e senha.
 
-## Gerar o executável
+## Gerar o pacote
 
 ```powershell
 .\publicar.ps1
 ```
 
-Gera `dist\PranchetaDatabase.exe` (single-file, self-contained, win-x64, ~50 MB). Anexe esse
-arquivo numa Release do GitHub; a pasta `dist/` não é versionada.
+Gera `dist\PranchetaDatabase.zip` (~4 MB: a dll com a tela embutida, as dependências e o
+`Abrir Prancheta.cmd`). Anexe esse arquivo numa Release do GitHub; a pasta `dist/` não é versionada.
 
 Detalhes da API, endpoints e travas de segurança: [prancheta-api/README.md](prancheta-api/README.md).
 

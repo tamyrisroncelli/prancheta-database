@@ -1,17 +1,24 @@
-# Gera o executável único da Prancheta Database (Windows x64, sem precisar instalar o .NET).
+# Gera o pacote da Prancheta Database para distribuir (Windows, roda pelo .NET 10 instalado).
 # Uso, na raiz do repositório:  .\publicar.ps1
-# Resultado: dist\PranchetaDatabase.exe  (anexe esse arquivo numa Release do GitHub; não commite).
+# Resultado: dist\PranchetaDatabase.zip  (anexe esse arquivo numa Release do GitHub; não commite).
+#
+# Não gera .exe próprio de propósito: máquinas com política que bloqueia executável não assinado
+# rodam a dll pelo dotnet.exe instalado, que é assinado pela Microsoft.
 
 $ErrorActionPreference = 'Stop'
 $raiz = $PSScriptRoot
 $dist = Join-Path $raiz 'dist'
+$pasta = Join-Path $dist 'PranchetaDatabase'
 
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
-dotnet publish (Join-Path $raiz 'prancheta-api\PranchetaApi.csproj') -c Release -o $dist --nologo
+dotnet publish (Join-Path $raiz 'prancheta-api\PranchetaApi.csproj') -c Release -o $pasta --nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish falhou (código $LASTEXITCODE)." }
 
-# Mantém só o executável: appsettings e arquivos de depuração não são necessários para rodar.
-Get-ChildItem $dist -File | Where-Object { $_.Name -ne 'PranchetaDatabase.exe' } | Remove-Item -Force
+# appsettings de desenvolvimento não vai no pacote.
+Remove-Item (Join-Path $pasta 'appsettings.Development.json') -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $raiz 'Abrir Prancheta.cmd') $pasta
 
-$exe = Get-Item (Join-Path $dist 'PranchetaDatabase.exe')
-"{0}  {1:N1} MB" -f $exe.FullName, ($exe.Length / 1MB)
+$zip = Join-Path $dist 'PranchetaDatabase.zip'
+Compress-Archive -Path $pasta -DestinationPath $zip
+$z = Get-Item $zip
+"{0}  {1:N1} MB" -f $z.FullName, ($z.Length / 1MB)
